@@ -55,6 +55,20 @@ function StudentProfileContent() {
   const [transferTargetId, setTransferTargetId] = useState('');
 
   const canManage = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteStudent = async () => {
+    if (!student) return;
+    if (!confirm(`"${student.fullName}" o'quvchini tizimdan butunlay o'chirmoqchimisiz?\nBu amalni qaytarib bo'lmaydi!`)) return;
+    setDeleting(true);
+    try {
+      await apiRequest(`/students/${student.id}`, { method: 'DELETE' });
+      window.location.href = '/students';
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "O'chirishda xatolik");
+      setDeleting(false);
+    }
+  };
 
   const load = async () => {
     if (!studentId) {
@@ -177,6 +191,16 @@ function StudentProfileContent() {
           <p className="text-xs opacity-70">{student.phone} • Oylik: {formatMoney(student.monthlyFee)}</p>
         </div>
         <StatusBadge status={student.status} />
+        {canManage && (
+          <button
+            onClick={handleDeleteStudent}
+            disabled={deleting}
+            className="p-2 rounded-xl bg-red-500/15 text-red-600 hover:bg-red-500/25 transition-colors disabled:opacity-50"
+            title="O'quvchini butunlay o'chirish"
+          >
+            <Trash2 className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
       {/* Debt summary banner */}

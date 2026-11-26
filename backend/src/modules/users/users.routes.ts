@@ -168,6 +168,60 @@ usersRouter.post('/', requireRoles(RoleName.SUPER_ADMIN, RoleName.ADMIN), valida
   }
 });
 
+usersRouter.delete('/:id', requireRoles(RoleName.SUPER_ADMIN, RoleName.ADMIN), async (req, res, next) => {
+  try {
+    const id = String(req.params.id);
+    const actorId = req.user!.userId;
+
+    if (id === actorId) {
+      res.status(403).json({ success: false, message: "O'zingizni o'chira olmaysiz" });
+      return;
+    }
+
+    const existing = await prisma.user.findUnique({
+      where: { id },
+      include: {
+        role: true,
+        teacher: { include: { groups: { where: { status: 'ACTIVE' as never }, select: { id: true } } } },
+      },
+    });
+    if (!existing) throw new NotFoundError('Foydalanuvchi topilmadi');
+
+    if (existing.role.name === RoleName.SUPER_ADMIN) {
+      res.status(403).json({ success: false, message: "SUPER_ADMIN foydalanuvchini o'chirib bo'lmaydi" });
+      return;
+    }
+
+    if (existing.teacher && existing.teacher.groups.length > 0) {
+      res.status(409).json({
+        success: false,
+        message: `Bu o'qituvchining ${existing.teacher.groups.length} ta faol guruhi bor. Avval guruhlarni boshqa o'qituvchiga o'tkazing.`,
+      });
+      return;
+    }
+
+    await prisma.$transaction(async (tx) => {
+      if (existing.teacher) {
+        await tx.teacher.delete({ where: { userId: id } });
+      }
+      await tx.user.delete({ where: { id } });
+    });
+
+    await recordAuditLog({
+      userId: actorId,
+      action: 'USER_DELETE',
+      entity: 'users',
+      entityId: id,
+      oldValues: { fullName: existing.fullName, phone: existing.phone, role: existing.role.name },
+      req,
+    });
+
+    res.json({ success: true, message: "Foydalanuvchi o'chirildi" });
+  } catch (err) {
+    next(err);
+  }
+});
+
 usersRouter.patch('/:id', requireRoles(RoleName.SUPER_ADMIN, RoleName.ADMIN), validateBody(updateUserSchema), async (req, res, next) => {
   try {
     const id = String(req.params.id);

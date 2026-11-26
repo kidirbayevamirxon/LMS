@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Bell, Globe, Moon, Plus, Settings as SettingsIcon, Shield, Sun, X } from 'lucide-react';
+import { Bell, Globe, Moon, Plus, Settings as SettingsIcon, Shield, Sun, Trash2, X } from 'lucide-react';
 import { LoadingState, StatusBadge } from '@/components/UiStates';
 import { useApp } from '@/context/AppContext';
 import { apiRequest } from '@/lib/api';
@@ -110,6 +110,16 @@ export default function SettingsPage() {
   };
 
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+
+  const handleDeleteUser = async (u: StaffUser) => {
+    if (!confirm(`"${u.fullName}" foydalanuvchini o'chirmoqchimisiz?`)) return;
+    try {
+      await apiRequest(`/users/${u.id}`, { method: 'DELETE' });
+      await load();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "O'chirishda xatolik");
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -284,6 +294,15 @@ export default function SettingsPage() {
                       {u.role.name === 'SUPER_ADMIN' || u.role.name === 'ADMIN' ? 'Admin' : u.role.displayName}
                     </span>
                     <StatusBadge status={u.isActive ? 'ACTIVE' : 'INACTIVE'} />
+                    {isAdmin && u.role.name !== 'SUPER_ADMIN' && u.id !== user?.id && (
+                      <button
+                        onClick={() => handleDeleteUser(u)}
+                        className="p-1.5 rounded-xl bg-red-500/15 text-red-600 hover:bg-red-500/25 transition-colors"
+                        title="O'chirish"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
