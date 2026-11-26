@@ -390,13 +390,13 @@ export async function buildCertificatePdf(id: string): Promise<Buffer> {
 
     // Top geometric center emblem + organization subtitle
     doc.save();
-    doc.fillColor('#1E40AF').circle(w / 2 - 74, 48, 9).fill();
-    doc.fillColor('#16A34A').circle(w / 2 + 74, 48, 9).fill();
+    doc.fillColor('#1E40AF').circle(w / 2 - 122, 48, 6).fill();
+    doc.fillColor('#16A34A').circle(w / 2 + 122, 48, 6).fill();
     doc
       .font('Helvetica-Bold')
       .fontSize(9.5)
       .fillColor('#334155')
-      .text('EDUMANAGER • EDUCATION PLATFORM', w / 2 - 140, 44, { width: 280, align: 'center' });
+      .text('EDUMANAGER  •  EDUCATION PLATFORM', w / 2 - 110, 44, { width: 220, align: 'center' });
     doc.restore();
 
     // Main Certificate Typography
@@ -493,19 +493,21 @@ export async function buildCertificatePdf(id: string): Promise<Buffer> {
     doc.strokeColor('#1D4ED8').lineWidth(1.6).circle(stampCx, stampCy, 42).stroke();
     doc.strokeColor('#1D4ED8').lineWidth(0.9).circle(stampCx, stampCy, 38).stroke();
     doc.strokeColor('#1D4ED8').lineWidth(1.2).circle(stampCx, stampCy, 24).stroke();
-    doc
-      .font('Helvetica-Bold')
-      .fontSize(7)
-      .fillColor('#1D4ED8')
-      .text(cert.centerName.toUpperCase().slice(0, 26), stampCx - 23, stampCy - 9, {
-        width: 46,
-        align: 'center',
-      });
+    const stampWords = cert.centerName.toUpperCase().split(/\s+/).slice(0, 3).join('\n');
     doc
       .font('Helvetica-Bold')
       .fontSize(6)
       .fillColor('#1D4ED8')
-      .text('★ VERIFIED ★', stampCx - 34, stampCy + 27, { width: 68, align: 'center' });
+      .text(stampWords, stampCx - 22, stampCy - 11, {
+        width: 44,
+        align: 'center',
+        lineGap: 1,
+      });
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(5.5)
+      .fillColor('#1D4ED8')
+      .text('* VERIFIED *', stampCx - 30, stampCy + 28, { width: 60, align: 'center' });
     doc.restore();
 
     // QR Code on right
