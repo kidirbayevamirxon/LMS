@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+backend/.env
+mobile/.env*
+mobile/android/keystore.properties
+mobile/android/local.properties
+*.keystore
+*.jks
+
+# Build outputs
+backend/dist/
+backend/uploads/
+mobile/.next/
+mobile/out/
+mobile/tsconfig.tsbuildinfo
+*.tsbuildinfo
+
+# Logs & Backups
+*.log
+npm-debug.log*
+backups/
+nginx/certs/
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

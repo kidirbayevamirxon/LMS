@@ -1,0 +1,505 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleName {
+  SUPER_ADMIN
+  ADMIN
+  CASHIER
+  TEACHER
+  STUDENT
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum StudentStatus {
+  ACTIVE
+  INACTIVE
+  GRADUATED
+}
+
+enum TeacherStatus {
+  ACTIVE
+  INACTIVE
+  ON_LEAVE
+}
+
+enum CourseStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum GroupStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  LEFT
+  COMPLETED
+}
+
+enum StudentCourseStatus {
+  ENROLLED
+  COMPLETED
+  DROPPED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  BANK_TRANSFER
+  CLICK
+  PAYME
+}
+
+enum PaymentType {
+  REGULAR
+  PARTIAL
+  ADVANCE
+}
+
+enum AttendanceStatus {
+  PRESENT
+  LATE
+  ABSENT
+  EXCUSED
+}
+
+enum AttendanceMethod {
+  FACE_ID
+  MANUAL
+}
+
+enum CertificateStatus {
+  DRAFT
+  ISSUED
+  REVOKED
+}
+
+enum NotificationType {
+  PAYMENT_DUE_SOON
+  PAYMENT_OVERDUE
+  DEBT_ALERT
+  COURSE_ENDING_SOON
+  CERTIFICATE_READY
+  ATTENDANCE_ALERT
+  SYSTEM
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        RoleName @unique
+  displayName String   @map("display_name")
+  description String?
+  permissions Json     @default("[]")
+  users       User[]
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("roles")
+}
+
+model User {
+  id            String         @id @default(uuid())
+  roleId        String         @map("role_id")
+  role          Role           @relation(fields: [roleId], references: [id])
+  fullName      String         @map("full_name")
+  email         String?        @unique
+  phone         String         @unique
+  passwordHash  String         @map("password_hash")
+  avatarUrl     String?        @map("avatar_url")
+  fcmToken      String?        @map("fcm_token")
+  language      String         @default("uz")
+  isActive      Boolean        @default(true) @map("is_active")
+  lastLoginAt   DateTime?      @map("last_login_at")
+  teacher       Teacher?
+  student       Student?
+  refreshTokens RefreshToken[]
+  cashPayments  Payment[]      @relation("CashierPayments")
+  markedAttendances Attendance[] @relation("MarkedByUser")
+  registeredFaces   FaceProfile[] @relation("FaceRegisteredBy")
+  issuedCertificates Certificate[] @relation("IssuedCertificates")
+  notifications Notification[]
+  auditLogs     AuditLog[]
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  @@index([roleId])
+  @@index([phone])
+  @@map("users")
+}
+
+model RefreshToken {
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique @map("token_hash")
+  expiresAt  DateTime  @map("expires_at")
+  revokedAt  DateTime? @map("revoked_at")
+  deviceInfo String?   @map("device_info")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model Teacher {
+  id             String        @id @default(uuid())
+  userId         String        @unique @map("user_id")
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialization String?
+  bio            String?
+  hireDate       DateTime      @default(now()) @map("hire_date")
+  salaryPercent  Decimal?      @map("salary_percent") @db.Decimal(5, 2)
+  status         TeacherStatus @default(ACTIVE)
+  groups         Group[]
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  @@map("teachers")
+}
+
+model Student {
+  id             String          @id @default(uuid())
+  userId         String?         @unique @map("user_id")
+  user           User?           @relation(fields: [userId], references: [id], onDelete: SetNull)
+  fullName       String          @map("full_name")
+  phone          String          @unique
+  birthDate      DateTime?       @map("birth_date")
+  gender         Gender          @default(MALE)
+  address        String?
+  parentPhone    String?         @map("parent_phone")
+  enrolledAt     DateTime        @default(now()) @map("enrolled_at")
+  monthlyFee     Decimal         @default(0) @map("monthly_fee") @db.Decimal(12, 2)
+  photoUrl       String?         @map("photo_url")
+  status         StudentStatus   @default(ACTIVE)
+  notes          String?
+  groupStudents  GroupStudent[]
+  studentCourses StudentCourse[]
+  paymentMonths  PaymentMonth[]
+  payments       Payment[]
+  attendances    Attendance[]
+  faceProfile    FaceProfile?
+  certificates   Certificate[]
+  notifications  Notification[]
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+
+  @@index([fullName])
+  @@index([status])
+  @@index([enrolledAt])
+  @@map("students")
+}
+
+model Course {
+  id             String          @id @default(uuid())
+  name           String          @unique
+  durationMonths Int             @map("duration_months")
+  monthlyPrice   Decimal         @map("monthly_price") @db.Decimal(12, 2)
+  description    String?
+  hasCertificate Boolean         @default(true) @map("has_certificate")
+  status         CourseStatus    @default(ACTIVE)
+  groups         Group[]
+  studentCourses StudentCourse[]
+  paymentMonths  PaymentMonth[]
+  certificates   Certificate[]
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+
+  @@index([status])
+  @@map("courses")
+}
+
+model Group {
+  id            String         @id @default(uuid())
+  name          String
+  courseId      String         @map("course_id")
+  course        Course         @relation(fields: [courseId], references: [id])
+  teacherId     String         @map("teacher_id")
+  teacher       Teacher        @relation(fields: [teacherId], references: [id])
+  lessonDays    Json           @default("[]") @map("lesson_days")
+  startTime     String         @map("start_time")
+  endTime       String         @map("end_time")
+  startDate     DateTime       @map("start_date")
+  endDate       DateTime       @map("end_date")
+  maxStudents   Int            @default(15) @map("max_students")
+  room          String?
+  status        GroupStatus    @default(ACTIVE)
+  groupStudents GroupStudent[]
+  paymentMonths PaymentMonth[]
+  attendances   Attendance[]
+  certificates  Certificate[]
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+
+  @@index([courseId])
+  @@index([teacherId])
+  @@index([status])
+  @@map("groups")
+}
+
+model GroupStudent {
+  id               String           @id @default(uuid())
+  groupId          String           @map("group_id")
+  group            Group            @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  studentId        String           @map("student_id")
+  student          Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  joinedAt         DateTime         @default(now()) @map("joined_at")
+  leftAt           DateTime?        @map("left_at")
+  customMonthlyFee Decimal?         @map("custom_monthly_fee") @db.Decimal(12, 2)
+  status           EnrollmentStatus @default(ACTIVE)
+  createdAt        DateTime         @default(now()) @map("created_at")
+  updatedAt        DateTime         @updatedAt @map("updated_at")
+
+  @@unique([groupId, studentId])
+  @@index([groupId, status])
+  @@index([studentId, status])
+  @@map("group_students")
+}
+
+model StudentCourse {
+  id             String              @id @default(uuid())
+  studentId      String              @map("student_id")
+  student        Student             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  courseId       String              @map("course_id")
+  course         Course              @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  enrolledAt     DateTime            @default(now()) @map("enrolled_at")
+  completedAt    DateTime?           @map("completed_at")
+  monthlyFee     Decimal             @map("monthly_fee") @db.Decimal(12, 2)
+  resultScore    Decimal?            @map("result_score") @db.Decimal(5, 2)
+  resultGrade    String?             @map("result_grade")
+  teacherComment String?             @map("teacher_comment")
+  status         StudentCourseStatus @default(ENROLLED)
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+
+  @@unique([studentId, courseId])
+  @@index([studentId])
+  @@index([courseId])
+  @@map("student_courses")
+}
+
+model PaymentMonth {
+  id             String        @id @default(uuid())
+  studentId      String        @map("student_id")
+  student        Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  groupId        String        @map("group_id")
+  group          Group         @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  courseId       String        @map("course_id")
+  course         Course        @relation(fields: [courseId], references: [id])
+  billingYear    Int           @map("billing_year")
+  billingMonth   Int           @map("billing_month")
+  dueDate        DateTime      @map("due_date")
+  expectedAmount Decimal       @map("expected_amount") @db.Decimal(12, 2)
+  paidAmount     Decimal       @default(0) @map("paid_amount") @db.Decimal(12, 2)
+  remainingDebt  Decimal       @map("remaining_debt") @db.Decimal(12, 2)
+  status         PaymentStatus @default(UNPAID)
+  payments       Payment[]
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  @@unique([studentId, groupId, billingYear, billingMonth])
+  @@index([studentId])
+  @@index([status])
+  @@index([billingYear, billingMonth])
+  @@index([dueDate])
+  @@map("payment_months")
+}
+
+model Payment {
+  id                    String        @id @default(uuid())
+  receiptNumber         String        @unique @map("receipt_number")
+  studentId             String        @map("student_id")
+  student               Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  paymentMonthId        String        @map("payment_month_id")
+  paymentMonth          PaymentMonth  @relation(fields: [paymentMonthId], references: [id], onDelete: Cascade)
+  cashierId             String?       @map("cashier_id")
+  cashier               User?         @relation("CashierPayments", fields: [cashierId], references: [id], onDelete: SetNull)
+  amount                Decimal       @db.Decimal(12, 2)
+  paymentDate           DateTime      @default(now()) @map("payment_date")
+  paymentMethod         PaymentMethod @default(CASH) @map("payment_method")
+  paymentType           PaymentType   @default(REGULAR) @map("payment_type")
+  status                PaymentStatus @default(PAID)
+  externalTransactionId String?       @unique @map("external_transaction_id")
+  providerPayload       Json?         @map("provider_payload")
+  notes                 String?
+  cancelledAt           DateTime?     @map("cancelled_at")
+  refundedAt            DateTime?     @map("refunded_at")
+  actionReason          String?       @map("action_reason")
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
+
+  @@index([studentId])
+  @@index([paymentMonthId])
+  @@index([paymentDate])
+  @@index([status])
+  @@map("payments")
+}
+
+model Attendance {
+  id                    String           @id @default(uuid())
+  studentId             String           @map("student_id")
+  student               Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  groupId               String           @map("group_id")
+  group                 Group            @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  markedById            String?          @map("marked_by_id")
+  markedBy              User?            @relation("MarkedByUser", fields: [markedById], references: [id], onDelete: SetNull)
+  attendanceDate        DateTime         @map("attendance_date") @db.Date
+  checkInTime           DateTime?        @map("check_in_time")
+  checkOutTime          DateTime?        @map("check_out_time")
+  status                AttendanceStatus @default(PRESENT)
+  recognitionConfidence Decimal?         @map("recognition_confidence") @db.Decimal(5, 4)
+  method                AttendanceMethod @default(MANUAL)
+  livenessPassed        Boolean          @default(false) @map("liveness_passed")
+  notes                 String?
+  createdAt             DateTime         @default(now()) @map("created_at")
+  updatedAt             DateTime         @updatedAt @map("updated_at")
+
+  @@unique([studentId, groupId, attendanceDate])
+  @@index([attendanceDate])
+  @@index([groupId, attendanceDate])
+  @@index([studentId])
+  @@index([status])
+  @@map("attendance")
+}
+
+model FaceProfile {
+  id                 String   @id @default(uuid())
+  studentId          String   @unique @map("student_id")
+  student            Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  encryptedEmbedding String   @map("encrypted_embedding")
+  encryptionIv       String   @map("encryption_iv")
+  encryptionAuthTag  String   @map("encryption_auth_tag")
+  embeddingDimension Int      @map("embedding_dimension")
+  modelVersion       String   @default("mobilefacenet-v1") @map("model_version")
+  angleCount         Int      @default(1) @map("angle_count")
+  livenessVerified   Boolean  @default(true) @map("liveness_verified")
+  registeredById     String?  @map("registered_by_id")
+  registeredBy       User?    @relation("FaceRegisteredBy", fields: [registeredById], references: [id], onDelete: SetNull)
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@map("face_profiles")
+}
+
+model Certificate {
+  id                String            @id @default(uuid())
+  certificateNumber String            @unique @map("certificate_number")
+  studentId         String            @map("student_id")
+  student           Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  courseId          String            @map("course_id")
+  course            Course            @relation(fields: [courseId], references: [id])
+  groupId           String?           @map("group_id")
+  group             Group?            @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  studentFullName   String            @map("student_full_name")
+  courseName        String            @map("course_name")
+  centerName        String            @map("center_name")
+  courseStartDate   DateTime          @map("course_start_date")
+  courseEndDate     DateTime          @map("course_end_date")
+  issuedDate        DateTime          @default(now()) @map("issued_date")
+  resultScore       String            @map("result_score")
+  qrCodeData        String            @map("qr_code_data")
+  signatureUrl      String?           @map("signature_url")
+  logoUrl           String?           @map("logo_url")
+  status            CertificateStatus @default(ISSUED)
+  issuedById        String?           @map("issued_by_id")
+  issuedBy          User?             @relation("IssuedCertificates", fields: [issuedById], references: [id], onDelete: SetNull)
+  revokedAt         DateTime?         @map("revoked_at")
+  revokeReason      String?           @map("revoke_reason")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  @@unique([studentId, courseId])
+  @@index([certificateNumber])
+  @@index([status])
+  @@map("certificates")
+}
+
+model Notification {
+  id            String           @id @default(uuid())
+  userId        String?          @map("user_id")
+  user          User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studentId     String?          @map("student_id")
+  student       Student?         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  type          NotificationType
+  title         String
+  body          String
+  data          Json?
+  isRead        Boolean          @default(false) @map("is_read")
+  sentViaPush   Boolean          @default(false) @map("sent_via_push")
+  pushMessageId String?          @map("push_message_id")
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+
+  @@index([userId, isRead])
+  @@index([studentId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model Setting {
+  id                       String   @id @default(uuid())
+  centerName               String   @default("EduManager Learning Center") @map("center_name")
+  centerPhone              String?  @map("center_phone")
+  centerAddress            String?  @map("center_address")
+  centerLogoUrl            String?  @map("center_logo_url")
+  directorName             String?  @map("director_name")
+  directorSignatureUrl     String?  @map("director_signature_url")
+  currency                 String   @default("UZS")
+  paymentDueDay            Int      @default(5) @map("payment_due_day")
+  lateGraceMinutes         Int      @default(15) @map("late_grace_minutes")
+  faceRecognitionThreshold Decimal  @default(0.760) @map("face_recognition_threshold") @db.Decimal(4, 3)
+  livenessRequired         Boolean  @default(true) @map("liveness_required")
+  defaultLanguage          String   @default("uz") @map("default_language")
+  clickEnabled             Boolean  @default(false) @map("click_enabled")
+  paymeEnabled             Boolean  @default(false) @map("payme_enabled")
+  fcmEnabled               Boolean  @default(false) @map("fcm_enabled")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?  @map("user_id")
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String
+  entityId  String?  @map("entity_id")
+  oldValues Json?    @map("old_values")
+  newValues Json?    @map("new_values")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([userId])
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
