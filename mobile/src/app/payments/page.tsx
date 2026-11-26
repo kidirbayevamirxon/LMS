@@ -173,7 +173,7 @@ export default function PaymentsPage() {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 overflow-x-auto pb-1">
         {[
           ['transactions', t.payments.transactionsTab],
           ['debts', `${t.payments.debtsTab} (${debtors.length})`],
@@ -182,7 +182,7 @@ export default function PaymentsPage() {
           <button
             key={k}
             onClick={() => setTab(k as typeof tab)}
-            className={`px-4 py-2 rounded-2xl text-xs font-semibold ${tab === k ? 'bg-blue-600 text-white' : 'm3-tonal-card'}`}
+            className={`px-4 py-2 rounded-2xl text-xs font-semibold whitespace-nowrap ${tab === k ? 'bg-blue-600 text-white' : 'm3-tonal-card'}`}
           >
             {label}
           </button>

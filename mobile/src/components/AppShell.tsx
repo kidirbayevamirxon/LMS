@@ -58,6 +58,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   const role = user.role;
+  const roleLabel =
+    role === 'SUPER_ADMIN' || role === 'ADMIN'
+      ? 'Admin'
+      : role === 'TEACHER'
+        ? 'O‘qituvchi'
+        : role === 'STUDENT'
+          ? 'O‘quvchi'
+          : user.roleDisplayName || role;
+
   const navItems = [
     { href: '/', label: t.nav.dashboard, icon: LayoutDashboard, roles: ['SUPER_ADMIN', 'ADMIN', 'CASHIER', 'TEACHER', 'STUDENT'] },
     { href: '/students', label: t.nav.students, icon: Users, roles: ['SUPER_ADMIN', 'ADMIN', 'CASHIER', 'TEACHER'] },
@@ -88,7 +97,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <div>
             <div className="font-bold text-lg leading-tight">{t.appName}</div>
-            <div className="text-xs opacity-70">{user.roleDisplayName || user.role}</div>
+            <div className="text-xs opacity-70">{roleLabel}</div>
           </div>
         </div>
 
@@ -241,13 +250,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 lg:pl-72 pb-24 lg:pb-8">
-        <div className="max-w-7xl mx-auto p-4 md:p-6">{children}</div>
+      <main className="flex-1 lg:pl-72 pb-28 lg:pb-10 min-w-0">
+        <div className="max-w-7xl mx-auto px-3.5 py-4 sm:p-5 md:p-6">{children}</div>
       </main>
 
       {/* Material 3 Mobile Bottom Navigation Bar */}
       <nav
-        className="lg:hidden fixed bottom-0 inset-x-0 z-30 border-t px-1 py-1.5 flex items-center justify-around no-print"
+        className="lg:hidden fixed bottom-0 inset-x-0 z-30 border-t px-1 pt-1.5 pb-safe flex items-center justify-around backdrop-blur-md no-print"
         style={{ backgroundColor: 'var(--md-surface-container)', borderColor: 'var(--md-outline)' }}
       >
         {bottomItems.map((item) => {

@@ -232,4 +232,51 @@ describe('EduManager Full Backend Integration Tests', () => {
     expect(docsRes.status).toBe(200);
     expect(docsRes.body.openapi).toBe('3.0.3');
   });
+
+  it('Allows Admin role management, transfers student to another group, removes student, and deletes group', async () => {
+    const adminLogin = await request(app)
+      .post('/api/auth/login')
+      .send({ phone: '+998901000002', password: 'EduManager2026!' });
+    expect(adminLogin.status).toBe(200);
+    const adminToken = adminLogin.body.data.accessToken;
+
+    const teacher = await prisma.teacher.findFirst();
+    const tempGroupRes = await request(app)
+      .post('/api/groups')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        name: 'Temp-Transfer-Group',
+        courseId: backendCourseId,
+        teacherId: teacher!.id,
+        lessonDays: ['TUE', 'THU'],
+        startTime: '10:00',
+        endTime: '12:00',
+        startDate: '2026-09-01',
+        endDate: '2027-02-01',
+        maxStudents: 15,
+      });
+    expect(tempGroupRes.status).toBe(201);
+    const tempGroupId = tempGroupRes.body.data.id;
+
+    // Transfer student from Backend-01 to Temp-Transfer-Group
+    const transferRes = await request(app)
+      .post(`/api/groups/${backendGroupId}/students/${createdStudentId}/transfer`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ targetGroupId: tempGroupId, reason: 'Vaqt mos kelmadi' });
+    expect(transferRes.status).toBe(200);
+    expect(transferRes.body.data.groupId).toBe(tempGroupId);
+
+    // Remove student from new group
+    const removeRes = await request(app)
+      .delete(`/api/groups/${tempGroupId}/students/${createdStudentId}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(removeRes.status).toBe(200);
+    expect(removeRes.body.data.status).toBe('LEFT');
+
+    // Delete temporary group
+    const delGroupRes = await request(app)
+      .delete(`/api/groups/${tempGroupId}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(delGroupRes.status).toBe(200);
+  });
 });

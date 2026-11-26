@@ -6,9 +6,7 @@ import { Lock, Phone, Sparkles } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 
 const DEMO_ACCOUNTS = [
-  { label: 'Super Admin', phone: '+998901000001' },
   { label: 'Admin', phone: '+998901000002' },
-  { label: 'Kassir', phone: '+998901000003' },
   { label: 'O‘qituvchi', phone: '+998901000004' },
   { label: 'O‘quvchi', phone: '+998901000006' },
 ];
@@ -16,7 +14,7 @@ const DEMO_ACCOUNTS = [
 export default function LoginPage() {
   const { login, t, lang, setLang } = useApp();
   const router = useRouter();
-  const [phone, setPhone] = useState('+998901000001');
+  const [phone, setPhone] = useState('+998901000002');
   const [password, setPassword] = useState('EduManager2026!');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

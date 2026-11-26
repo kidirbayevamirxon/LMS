@@ -258,6 +258,120 @@ export async function removeStudentFromGroup(
   return updated;
 }
 
+export async function deleteGroup(id: string, actorId: string, req: Request) {
+  const existing = await prisma.group.findUnique({ where: { id } });
+  if (!existing) throw new NotFoundError('Guruh topilmadi');
+
+  await prisma.group.delete({ where: { id } });
+
+  await recordAuditLog({
+    userId: actorId,
+    action: 'GROUP_DELETE',
+    entity: 'groups',
+    entityId: id,
+    oldValues: existing,
+    req,
+  });
+}
+
+export async function transferStudentBetweenGroups(
+  sourceGroupId: string,
+  studentId: string,
+  input: { targetGroupId: string; customMonthlyFee?: number; reason?: string },
+  actorId: string,
+  req: Request,
+) {
+  if (sourceGroupId === input.targetGroupId) {
+    throw new ValidationError('O‘quvchi allaqachon shu guruhda');
+  }
+
+  const [sourceEnrollment, targetGroup, student] = await Promise.all([
+    prisma.groupStudent.findUnique({
+      where: { groupId_studentId: { groupId: sourceGroupId, studentId } },
+    }),
+    prisma.group.findUnique({
+      where: { id: input.targetGroupId },
+      include: {
+        course: true,
+        _count: { select: { groupStudents: { where: { status: EnrollmentStatus.ACTIVE } } } },
+      },
+    }),
+    prisma.student.findUnique({ where: { id: studentId } }),
+  ]);
+
+  if (!sourceEnrollment || sourceEnrollment.status !== EnrollmentStatus.ACTIVE) {
+    throw new NotFoundError('O‘quvchi joriy guruhda faol emas');
+  }
+  if (!targetGroup) throw new NotFoundError('Yangi guruh topilmadi');
+  if (!student) throw new NotFoundError('O‘quvchi topilmadi');
+
+  const existingTarget = await prisma.groupStudent.findUnique({
+    where: { groupId_studentId: { groupId: targetGroup.id, studentId } },
+  });
+  if (existingTarget && existingTarget.status === EnrollmentStatus.ACTIVE) {
+    throw new ConflictError('O‘quvchi tanlangan guruhda allaqachon mavjud');
+  }
+
+  if (targetGroup._count.groupStudents >= targetGroup.maxStudents) {
+    throw new ValidationError(`Yangi guruh to‘lgan (maksimal ${targetGroup.maxStudents} ta o‘quvchi)`);
+  }
+
+  const fee = input.customMonthlyFee ?? Number(targetGroup.course.monthlyPrice);
+  const now = new Date();
+
+  const transferred = await prisma.$transaction(async (tx) => {
+    await tx.groupStudent.update({
+      where: { id: sourceEnrollment.id },
+      data: { status: EnrollmentStatus.LEFT, leftAt: now },
+    });
+
+    const newEnrollment = await tx.groupStudent.upsert({
+      where: { groupId_studentId: { groupId: targetGroup.id, studentId } },
+      update: {
+        status: EnrollmentStatus.ACTIVE,
+        joinedAt: now,
+        leftAt: null,
+        customMonthlyFee: fee,
+      },
+      create: {
+        groupId: targetGroup.id,
+        studentId,
+        joinedAt: now,
+        customMonthlyFee: fee,
+        status: EnrollmentStatus.ACTIVE,
+      },
+    });
+
+    await tx.studentCourse.upsert({
+      where: { studentId_courseId: { studentId, courseId: targetGroup.courseId } },
+      update: { status: StudentCourseStatus.ENROLLED, monthlyFee: fee },
+      create: {
+        studentId,
+        courseId: targetGroup.courseId,
+        enrolledAt: now,
+        monthlyFee: fee,
+        status: StudentCourseStatus.ENROLLED,
+      },
+    });
+
+    return newEnrollment;
+  });
+
+  await syncStudentPaymentMonths(studentId);
+
+  await recordAuditLog({
+    userId: actorId,
+    action: 'GROUP_STUDENT_TRANSFER',
+    entity: 'group_students',
+    entityId: transferred.id,
+    oldValues: { sourceGroupId, studentId },
+    newValues: { targetGroupId: targetGroup.id, studentId, reason: input.reason ?? null },
+    req,
+  });
+
+  return transferred;
+}
+
 export async function updateStudentCourseResult(
   groupId: string,
   studentId: string,

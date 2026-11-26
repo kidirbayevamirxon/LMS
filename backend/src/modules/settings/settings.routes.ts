@@ -49,7 +49,7 @@ settingsRouter.get('/', async (_req, res, next) => {
 
 settingsRouter.patch(
   '/',
-  requireRoles(RoleName.SUPER_ADMIN),
+  requireRoles(RoleName.SUPER_ADMIN, RoleName.ADMIN),
   validateBody(updateSettingsSchema),
   async (req, res, next) => {
     try {
@@ -87,7 +87,7 @@ settingsRouter.patch(
 
 settingsRouter.post(
   '/logo',
-  requireRoles(RoleName.SUPER_ADMIN),
+  requireRoles(RoleName.SUPER_ADMIN, RoleName.ADMIN),
   uploadCenterAsset.single('file'),
   async (req, res, next) => {
     try {
@@ -109,7 +109,7 @@ settingsRouter.post(
   },
 );
 
-settingsRouter.get('/audit-logs', requireRoles(RoleName.SUPER_ADMIN), async (req, res, next) => {
+settingsRouter.get('/audit-logs', requireRoles(RoleName.SUPER_ADMIN, RoleName.ADMIN), async (req, res, next) => {
   try {
     const { page, limit, skip } = parsePagination(req.query as Record<string, unknown>, 30);
     const [items, total] = await Promise.all([

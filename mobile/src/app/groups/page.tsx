@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Award, BookOpen, Plus, Trash2, UserPlus, Users, X } from 'lucide-react';
+import { ArrowRightLeft, Award, BookOpen, MapPin, Plus, Trash2, UserMinus, UserPlus, Users, X } from 'lucide-react';
 import { EmptyState, ErrorState, LoadingState, StatusBadge } from '@/components/UiStates';
 import { useApp } from '@/context/AppContext';
 import { apiRequest } from '@/lib/api';
@@ -38,7 +38,12 @@ interface GroupDetail extends Group {
   groupStudents: Array<{
     id: string;
     status: string;
-    student: { id: string; fullName: string; phone: string; studentCourses: Array<{ courseId: string; resultScore?: string; resultGrade?: string }> };
+    student: {
+      id: string;
+      fullName: string;
+      phone: string;
+      studentCourses: Array<{ courseId: string; resultScore?: string; resultGrade?: string }>;
+    };
   }>;
 }
 
@@ -58,6 +63,15 @@ export default function GroupsPage() {
   const [showCourseModal, setShowCourseModal] = useState(false);
   const [resultModal, setResultModal] = useState<{ groupId: string; studentId: string; studentName: string } | null>(null);
   const [resultForm, setResultForm] = useState({ resultScore: '90', resultGrade: 'A', completed: true });
+
+  const [transferModal, setTransferModal] = useState<{
+    sourceGroupId: string;
+    sourceGroupName: string;
+    studentId: string;
+    studentName: string;
+  } | null>(null);
+  const [targetGroupId, setTargetGroupId] = useState('');
+  const [transferReason, setTransferReason] = useState('');
 
   const [courseForm, setCourseForm] = useState({
     name: '',
@@ -80,6 +94,8 @@ export default function GroupsPage() {
     room: 'A-101',
   });
 
+  const canManage = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
+
   const load = async () => {
     setLoading(true);
     setError('');
@@ -90,7 +106,7 @@ export default function GroupsPage() {
       ]);
       setGroups(gRes.data);
       setCourses(cRes.data);
-      if (user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN') {
+      if (canManage) {
         const [tRes, sRes] = await Promise.all([
           apiRequest<{ data: Array<{ id: string; user: { fullName: string } }> }>('/users/teachers'),
           apiRequest<{ data: Array<{ id: string; fullName: string; phone: string }> }>('/students?limit=100'),
@@ -114,6 +130,18 @@ export default function GroupsPage() {
     setSelectedGroup(res.data);
   };
 
+  const handleDeleteGroup = async (group: Group, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (!confirm(`"${group.name}" guruhini butunlay o‘chirmoqchimisiz?`)) return;
+    try {
+      await apiRequest(`/groups/${group.id}`, { method: 'DELETE' });
+      if (selectedGroup?.id === group.id) setSelectedGroup(null);
+      await load();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Guruhni o‘chirishda xatolik');
+    }
+  };
+
   const handleEnroll = async () => {
     if (!selectedGroup || !enrollStudentId) return;
     try {
@@ -129,11 +157,33 @@ export default function GroupsPage() {
     }
   };
 
-  const handleRemove = async (studentId: string) => {
-    if (!selectedGroup || !confirm('O‘quvchini guruhdan chiqarasizmi?')) return;
+  const handleRemove = async (studentId: string, studentName: string) => {
+    if (!selectedGroup || !confirm(`${studentName} ni guruhdan chiqarasizmi?`)) return;
     await apiRequest(`/groups/${selectedGroup.id}/students/${studentId}`, { method: 'DELETE' });
     await openGroupDetail(selectedGroup.id);
     await load();
+  };
+
+  const handleTransferStudent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!transferModal || !targetGroupId) return;
+    try {
+      await apiRequest(`/groups/${transferModal.sourceGroupId}/students/${transferModal.studentId}/transfer`, {
+        method: 'POST',
+        body: JSON.stringify({
+          targetGroupId,
+          reason: transferReason || undefined,
+        }),
+      });
+      const sourceId = transferModal.sourceGroupId;
+      setTransferModal(null);
+      setTargetGroupId('');
+      setTransferReason('');
+      await openGroupDetail(sourceId);
+      await load();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'O‘tkazishda xatolik');
+    }
   };
 
   const handleCreateCourse = async (e: React.FormEvent) => {
@@ -192,14 +242,12 @@ export default function GroupsPage() {
     }
   };
 
-  const canManage = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
-
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold">{t.groups.title}</h1>
+        <h1 className="text-xl sm:text-2xl font-bold">{t.groups.title}</h1>
         {canManage && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setShowCourseModal(true)}
               className="px-3.5 py-2 rounded-2xl m3-tonal-card text-xs font-semibold flex items-center gap-1.5"
@@ -218,16 +266,16 @@ export default function GroupsPage() {
         )}
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 overflow-x-auto pb-1">
         <button
           onClick={() => setTab('groups')}
-          className={`px-4 py-2 rounded-2xl text-xs font-semibold ${tab === 'groups' ? 'bg-blue-600 text-white' : 'm3-tonal-card'}`}
+          className={`px-4 py-2 rounded-2xl text-xs font-semibold whitespace-nowrap ${tab === 'groups' ? 'bg-blue-600 text-white' : 'm3-tonal-card'}`}
         >
           {t.groups.groupsTab} ({groups.length})
         </button>
         <button
           onClick={() => setTab('courses')}
-          className={`px-4 py-2 rounded-2xl text-xs font-semibold ${tab === 'courses' ? 'bg-blue-600 text-white' : 'm3-tonal-card'}`}
+          className={`px-4 py-2 rounded-2xl text-xs font-semibold whitespace-nowrap ${tab === 'courses' ? 'bg-blue-600 text-white' : 'm3-tonal-card'}`}
         >
           {t.groups.coursesTab} ({courses.length})
         </button>
@@ -241,37 +289,74 @@ export default function GroupsPage() {
         groups.length === 0 ? (
           <EmptyState />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {groups.map((g) => (
-              <div
-                key={g.id}
-                onClick={() => openGroupDetail(g.id)}
-                className="m3-card p-5 cursor-pointer hover:border-blue-500 transition space-y-3"
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-bold text-base">{g.name}</h3>
-                    <p className="text-xs text-blue-600 font-semibold">{g.course.name}</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            {groups.map((g) => {
+              const enrolled = g._count?.groupStudents ?? 0;
+              const pct = Math.min(100, Math.round((enrolled / Math.max(1, g.maxStudents)) * 100));
+              return (
+                <div
+                  key={g.id}
+                  onClick={() => openGroupDetail(g.id)}
+                  className="m3-card p-5 cursor-pointer hover:border-blue-500 transition flex flex-col justify-between gap-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h3 className="font-bold text-base truncate">{g.name}</h3>
+                      <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold truncate">{g.course.name}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <StatusBadge status={g.status} />
+                      {canManage && (
+                        <button
+                          onClick={(e) => handleDeleteGroup(g, e)}
+                          className="p-1.5 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20"
+                          title="Guruhni o‘chirish"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <StatusBadge status={g.status} />
+
+                  <div className="text-xs space-y-1.5 opacity-85">
+                    <div>O‘qituvchi: <span className="font-semibold">{g.teacher.user.fullName}</span></div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {(Array.isArray(g.lessonDays) ? g.lessonDays : []).map((day) => (
+                        <span key={day} className="px-2 py-0.5 rounded-lg m3-tonal-card text-[10px] font-bold">
+                          {day}
+                        </span>
+                      ))}
+                      <span className="font-semibold">{g.startTime}–{g.endTime}</span>
+                      {g.room && (
+                        <span className="inline-flex items-center gap-0.5 text-[11px] opacity-75">
+                          <MapPin className="w-3 h-3" /> {g.room}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[11px] font-semibold">
+                      <span className="opacity-75">O‘quvchilar</span>
+                      <span>{enrolled} / {g.maxStudents}</span>
+                    </div>
+                    <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--md-surface-variant)' }}>
+                      <div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
                 </div>
-                <div className="text-xs space-y-1 opacity-80">
-                  <div>O‘qituvchi: <span className="font-semibold">{g.teacher.user.fullName}</span></div>
-                  <div>Kunlar: {Array.isArray(g.lessonDays) ? g.lessonDays.join(', ') : ''} • {g.startTime}–{g.endTime}</div>
-                  <div>O‘quvchilar: <span className="font-bold">{g._count?.groupStudents ?? 0} / {g.maxStudents}</span></div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
           {courses.map((c) => (
-            <div key={c.id} className="m3-card p-5 space-y-2">
-              <div className="flex items-start justify-between">
+            <div key={c.id} className="m3-card p-5 space-y-2.5">
+              <div className="flex items-start justify-between gap-2">
                 <h3 className="font-bold text-base flex items-center gap-2">
-                  <BookOpen className="w-4 h-4 text-blue-600" />
-                  {c.name}
+                  <BookOpen className="w-4 h-4 text-blue-600 shrink-0" />
+                  <span>{c.name}</span>
                 </h3>
                 <StatusBadge status={c.status} />
               </div>
@@ -285,23 +370,37 @@ export default function GroupsPage() {
         </div>
       )}
 
-      {/* Group Detail Drawer/Modal */}
+      {/* Group Detail Modal */}
       {selectedGroup && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="m3-card w-full max-w-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between">
-              <div>
+        <div className="fixed inset-0 z-50 bg-black/55 flex items-center justify-center p-3 sm:p-4">
+          <div className="m3-card w-full max-w-2xl p-4 sm:p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
                 <h2 className="text-lg font-bold flex items-center gap-2">
-                  <Users className="w-5 h-5 text-blue-600" />
-                  {selectedGroup.name} — {selectedGroup.course.name}
+                  <Users className="w-5 h-5 text-blue-600 shrink-0" />
+                  <span className="truncate">{selectedGroup.name} — {selectedGroup.course.name}</span>
                 </h2>
-                <p className="text-xs opacity-70">{selectedGroup.teacher.user.fullName} • {selectedGroup.startTime}–{selectedGroup.endTime}</p>
+                <p className="text-xs opacity-70 mt-0.5">
+                  {selectedGroup.teacher.user.fullName} • {selectedGroup.startTime}–{selectedGroup.endTime}
+                </p>
               </div>
-              <button onClick={() => setSelectedGroup(null)}><X className="w-5 h-5" /></button>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {canManage && (
+                  <button
+                    onClick={() => handleDeleteGroup(selectedGroup)}
+                    className="px-3 py-1.5 rounded-xl bg-red-500/15 text-red-500 text-xs font-semibold flex items-center gap-1"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Guruhni o‘chirish
+                  </button>
+                )}
+                <button onClick={() => setSelectedGroup(null)} className="p-1.5 rounded-xl">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {canManage && (
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <select
                   value={enrollStudentId}
                   onChange={(e) => setEnrollStudentId(e.target.value)}
@@ -314,7 +413,7 @@ export default function GroupsPage() {
                 </select>
                 <button
                   onClick={handleEnroll}
-                  className="px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-semibold flex items-center gap-1"
+                  className="px-4 py-2.5 rounded-xl bg-blue-600 text-white text-xs font-semibold flex items-center justify-center gap-1.5 shrink-0"
                 >
                   <UserPlus className="w-4 h-4" />
                   {t.groups.enrollStudent}
@@ -322,16 +421,18 @@ export default function GroupsPage() {
               </div>
             )}
 
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {selectedGroup.groupStudents.map((gs) => {
                 const sc = gs.student.studentCourses.find((x) => x.courseId === selectedGroup.course.id);
                 return (
-                  <div key={gs.id} className="m3-tonal-card p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
-                    <div>
-                      <div className="font-bold">{gs.student.fullName}</div>
-                      <div className="opacity-70">{gs.student.phone} • {sc?.resultScore ? `Natija: ${sc.resultScore}% (${sc.resultGrade})` : 'Natija kiritilmagan'}</div>
+                  <div key={gs.id} className="m3-tonal-card p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+                    <div className="min-w-0">
+                      <div className="font-bold text-sm truncate">{gs.student.fullName}</div>
+                      <div className="opacity-70">
+                        {gs.student.phone} • {sc?.resultScore ? `Natija: ${sc.resultScore}% (${sc.resultGrade})` : 'Natija kiritilmagan'}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <StatusBadge status={gs.status} />
                       <button
                         onClick={() =>
@@ -343,16 +444,33 @@ export default function GroupsPage() {
                         }
                         className="px-2.5 py-1.5 rounded-xl bg-teal-600/15 text-teal-600 font-semibold flex items-center gap-1"
                       >
-                        <Award className="w-3.5 h-3.5" /> {t.groups.enterResult}
+                        <Award className="w-3.5 h-3.5" /> Natija
                       </button>
                       {canManage && gs.status === 'ACTIVE' && (
-                        <button
-                          onClick={() => handleRemove(gs.student.id)}
-                          className="p-1.5 rounded-xl bg-red-500/15 text-red-500"
-                          title={t.groups.removeStudent}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        <>
+                          <button
+                            onClick={() => {
+                              setTransferModal({
+                                sourceGroupId: selectedGroup.id,
+                                sourceGroupName: selectedGroup.name,
+                                studentId: gs.student.id,
+                                studentName: gs.student.fullName,
+                              });
+                              setTargetGroupId('');
+                            }}
+                            className="px-2.5 py-1.5 rounded-xl bg-blue-600/15 text-blue-600 font-semibold flex items-center gap-1"
+                            title="Boshqa guruhga o‘tkazish"
+                          >
+                            <ArrowRightLeft className="w-3.5 h-3.5" /> O‘tkazish
+                          </button>
+                          <button
+                            onClick={() => handleRemove(gs.student.id, gs.student.fullName)}
+                            className="px-2.5 py-1.5 rounded-xl bg-red-500/15 text-red-500 font-semibold flex items-center gap-1"
+                            title={t.groups.removeStudent}
+                          >
+                            <UserMinus className="w-3.5 h-3.5" /> Chiqarish
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -360,6 +478,53 @@ export default function GroupsPage() {
               })}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Transfer Student Modal */}
+      {transferModal && (
+        <div className="fixed inset-0 z-50 bg-black/65 flex items-center justify-center p-4">
+          <form onSubmit={handleTransferStudent} className="m3-card w-full max-w-md p-5 space-y-3">
+            <div className="flex justify-between items-center">
+              <h3 className="font-bold text-sm flex items-center gap-2">
+                <ArrowRightLeft className="w-4 h-4 text-blue-600" />
+                Guruhni almashtirish
+              </h3>
+              <button type="button" onClick={() => setTransferModal(null)}><X className="w-4 h-4" /></button>
+            </div>
+            <p className="text-xs opacity-80">
+              <b>{transferModal.studentName}</b> ni <b>{transferModal.sourceGroupName}</b> guruhidan qaysi guruhga o‘tkazasiz?
+            </p>
+            <select
+              required
+              value={targetGroupId}
+              onChange={(e) => setTargetGroupId(e.target.value)}
+              className="m3-input text-sm"
+            >
+              <option value="">Yangi guruhni tanlang...</option>
+              {groups
+                .filter((g) => g.id !== transferModal.sourceGroupId)
+                .map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name} ({g.course.name}) — {g._count?.groupStudents ?? 0}/{g.maxStudents}
+                  </option>
+                ))}
+            </select>
+            <input
+              value={transferReason}
+              onChange={(e) => setTransferReason(e.target.value)}
+              placeholder="Sabab (ixtiyoriy)"
+              className="m3-input text-sm"
+            />
+            <div className="flex justify-end gap-2 pt-1">
+              <button type="button" onClick={() => setTransferModal(null)} className="px-4 py-2 rounded-xl m3-tonal-card text-xs font-semibold">
+                {t.common.cancel}
+              </button>
+              <button type="submit" className="px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-semibold">
+                O‘tkazish
+              </button>
+            </div>
+          </form>
         </div>
       )}
 
@@ -429,7 +594,7 @@ export default function GroupsPage() {
       {/* Create Group Modal */}
       {showGroupModal && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <form onSubmit={handleCreateGroup} className="m3-card w-full max-w-md p-6 space-y-3">
+          <form onSubmit={handleCreateGroup} className="m3-card w-full max-w-md p-6 space-y-3 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center">
               <h3 className="font-bold">{t.groups.addGroup}</h3>
               <button type="button" onClick={() => setShowGroupModal(false)}><X className="w-5 h-5" /></button>

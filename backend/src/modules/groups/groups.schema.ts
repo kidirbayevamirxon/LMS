@@ -34,6 +34,12 @@ export const enrollStudentSchema = z.object({
   joinedAt: z.coerce.date().optional(),
 });
 
+export const transferStudentSchema = z.object({
+  targetGroupId: z.string().uuid(),
+  customMonthlyFee: z.coerce.number().nonnegative().optional(),
+  reason: z.string().optional(),
+});
+
 export const updateStudentResultSchema = z.object({
   resultScore: z.coerce.number().min(0).max(100),
   resultGrade: z.string().min(1).max(20),

@@ -193,14 +193,14 @@ export default function AttendancePage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
+        <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
           <ScanFace className="w-6 h-6 text-teal-600" />
           {t.attendance.title}
         </h1>
         <select
           value={selectedGroupId}
           onChange={(e) => setSelectedGroupId(e.target.value)}
-          className="m3-input max-w-xs text-sm"
+          className="m3-input w-full sm:max-w-xs text-sm"
         >
           {groups.map((g) => (
             <option key={g.id} value={g.id}>{g.name} — {g.course.name}</option>
@@ -208,7 +208,7 @@ export default function AttendancePage() {
         </select>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex gap-2 overflow-x-auto pb-1">
         {[
           ['face', t.attendance.faceMode],
           ['manual', t.attendance.manualMode],
@@ -217,7 +217,7 @@ export default function AttendancePage() {
           <button
             key={k}
             onClick={() => setMode(k as typeof mode)}
-            className={`px-4 py-2 rounded-2xl text-xs font-semibold ${mode === k ? 'bg-blue-600 text-white' : 'm3-tonal-card'}`}
+            className={`px-4 py-2 rounded-2xl text-xs font-semibold whitespace-nowrap ${mode === k ? 'bg-blue-600 text-white' : 'm3-tonal-card'}`}
           >
             {label}
           </button>

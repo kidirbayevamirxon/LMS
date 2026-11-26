@@ -5,6 +5,7 @@ import { validateBody } from '../../middleware/validate.middleware.js';
 import {
   createGroupSchema,
   enrollStudentSchema,
+  transferStudentSchema,
   updateGroupSchema,
   updateStudentResultSchema,
 } from './groups.schema.js';
@@ -44,6 +45,39 @@ groupsRouter.get('/:id', async (req, res, next) => {
     next(err);
   }
 });
+
+groupsRouter.delete(
+  '/:id',
+  requireRoles(RoleName.SUPER_ADMIN, RoleName.ADMIN),
+  async (req, res, next) => {
+    try {
+      await groupsService.deleteGroup(String(req.params.id), req.user!.userId, req);
+      res.json({ success: true, message: 'Guruh o‘chirildi' });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+groupsRouter.post(
+  '/:id/students/:studentId/transfer',
+  requireRoles(RoleName.SUPER_ADMIN, RoleName.ADMIN),
+  validateBody(transferStudentSchema),
+  async (req, res, next) => {
+    try {
+      const transferred = await groupsService.transferStudentBetweenGroups(
+        String(req.params.id),
+        String(req.params.studentId),
+        req.body,
+        req.user!.userId,
+        req,
+      );
+      res.json({ success: true, data: transferred });
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 groupsRouter.patch(
   '/:id',

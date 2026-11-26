@@ -3,7 +3,7 @@
 import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Camera, CheckCircle2, ScanFace, Trash2, X } from 'lucide-react';
+import { ArrowLeft, ArrowRightLeft, Camera, CheckCircle2, ScanFace, Trash2, UserMinus, X } from 'lucide-react';
 import { EmptyState, ErrorState, LoadingState, StatusBadge } from '@/components/UiStates';
 import { useApp } from '@/context/AppContext';
 import { apiRequest } from '@/lib/api';
@@ -50,6 +50,12 @@ function StudentProfileContent() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
+  const [allGroups, setAllGroups] = useState<Array<{ id: string; name: string; course: { name: string } }>>([]);
+  const [transferGroupFrom, setTransferGroupFrom] = useState<{ id: string; name: string } | null>(null);
+  const [transferTargetId, setTransferTargetId] = useState('');
+
+  const canManage = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
+
   const load = async () => {
     if (!studentId) {
       setError('O‘quvchi ID ko‘rsatilmagan');
@@ -59,8 +65,12 @@ function StudentProfileContent() {
     setLoading(true);
     setError('');
     try {
-      const res = await apiRequest<{ data: StudentDetail }>(`/students/${studentId}`);
+      const [res, gRes] = await Promise.all([
+        apiRequest<{ data: StudentDetail }>(`/students/${studentId}`),
+        apiRequest<{ data: Array<{ id: string; name: string; course: { name: string } }> }>('/groups?limit=100'),
+      ]);
       setStudent(res.data);
+      setAllGroups(gRes.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : t.common.error);
     } finally {
@@ -218,12 +228,39 @@ function StudentProfileContent() {
           <div className="m3-card p-5 space-y-2">
             <h3 className="font-bold text-sm mb-2">{t.students.groupHistory}</h3>
             {student.groupStudents.map((gs) => (
-              <div key={gs.id} className="m3-tonal-card p-3 flex justify-between items-center text-xs">
+              <div key={gs.id} className="m3-tonal-card p-3 flex flex-wrap justify-between items-center gap-2 text-xs">
                 <div>
                   <div className="font-bold">{gs.group.name}</div>
                   <div className="opacity-70">{gs.group.course.name}</div>
                 </div>
-                <StatusBadge status={gs.status} />
+                <div className="flex items-center gap-1.5">
+                  <StatusBadge status={gs.status} />
+                  {canManage && gs.status === 'ACTIVE' && (
+                    <>
+                      <button
+                        onClick={() => {
+                          setTransferGroupFrom({ id: gs.group.id, name: gs.group.name });
+                          setTransferTargetId('');
+                        }}
+                        className="px-2 py-1 rounded-xl bg-blue-600/15 text-blue-600 font-semibold flex items-center gap-1"
+                        title="Boshqa guruhga o‘tkazish"
+                      >
+                        <ArrowRightLeft className="w-3 h-3" /> O‘tkazish
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (!confirm(`${student.fullName} ni ${gs.group.name} guruhidan chiqarasizmi?`)) return;
+                          await apiRequest(`/groups/${gs.group.id}/students/${student.id}`, { method: 'DELETE' });
+                          await load();
+                        }}
+                        className="px-2 py-1 rounded-xl bg-red-500/15 text-red-500 font-semibold flex items-center gap-1"
+                        title="Guruhdan chiqarish"
+                      >
+                        <UserMinus className="w-3 h-3" /> Chiqarish
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -327,6 +364,53 @@ function StudentProfileContent() {
               <CheckCircle2 className="w-4 h-4" /> {faceStatusMsg}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Transfer Group Modal */}
+      {transferGroupFrom && (
+        <div className="fixed inset-0 z-50 bg-black/65 flex items-center justify-center p-4">
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!transferTargetId) return;
+              try {
+                await apiRequest(`/groups/${transferGroupFrom.id}/students/${student.id}/transfer`, {
+                  method: 'POST',
+                  body: JSON.stringify({ targetGroupId: transferTargetId }),
+                });
+                setTransferGroupFrom(null);
+                await load();
+              } catch (err) {
+                alert(err instanceof Error ? err.message : 'O‘tkazishda xatolik');
+              }
+            }}
+            className="m3-card w-full max-w-sm p-5 space-y-3"
+          >
+            <div className="flex items-center justify-between">
+              <h3 className="font-bold text-sm">Boshqa guruhga o‘tkazish</h3>
+              <button type="button" onClick={() => setTransferGroupFrom(null)}><X className="w-4 h-4" /></button>
+            </div>
+            <p className="text-xs opacity-75">
+              Joriy guruh: <b>{transferGroupFrom.name}</b>
+            </p>
+            <select
+              required
+              value={transferTargetId}
+              onChange={(e) => setTransferTargetId(e.target.value)}
+              className="m3-input text-sm"
+            >
+              <option value="">Yangi guruhni tanlang...</option>
+              {allGroups
+                .filter((g) => g.id !== transferGroupFrom.id)
+                .map((g) => (
+                  <option key={g.id} value={g.id}>{g.name} ({g.course.name})</option>
+                ))}
+            </select>
+            <button type="submit" className="w-full py-2.5 rounded-xl bg-blue-600 text-white text-xs font-semibold">
+              O‘tkazish
+            </button>
+          </form>
         </div>
       )}
 

@@ -145,29 +145,35 @@ export default function DashboardPage() {
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <GraduationCap className="w-7 h-7 text-blue-600" />
-            {t.nav.dashboard}
-          </h1>
-          <p className="text-xs opacity-70 mt-0.5">{t.appSubtitle}</p>
+    <div className="space-y-5">
+      <div className="m3-card p-5 sm:p-6 bg-gradient-to-r from-blue-800 via-blue-700 to-teal-700 text-white border-none">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
+              <GraduationCap className="w-7 h-7" />
+              {t.nav.dashboard}
+            </h1>
+            <p className="text-xs text-blue-100 mt-1">{t.appSubtitle}</p>
+          </div>
+          <div className="text-right text-xs bg-white/15 px-3.5 py-2 rounded-2xl backdrop-blur-sm">
+            <div className="opacity-80">{t.dashboard.monthlyRevenue}</div>
+            <div className="font-bold text-sm sm:text-base">{formatMoney(s.monthlyRevenue)}</div>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
         {statCards.map((card) => {
           const Icon = card.icon;
           return (
-            <div key={card.label} className="m3-card p-4 flex flex-col justify-between gap-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs opacity-75 font-medium">{card.label}</span>
-                <div className={`p-2 rounded-xl ${card.color}`}>
+            <div key={card.label} className="m3-card p-3.5 sm:p-4 flex flex-col justify-between gap-2">
+              <div className="flex items-center justify-between gap-1.5">
+                <span className="text-[11px] sm:text-xs opacity-75 font-medium leading-tight">{card.label}</span>
+                <div className={`p-2 rounded-xl shrink-0 ${card.color}`}>
                   <Icon className="w-4 h-4" />
                 </div>
               </div>
-              <div className="text-lg md:text-xl font-bold tracking-tight">{card.value}</div>
+              <div className="text-base sm:text-lg font-bold tracking-tight truncate">{card.value}</div>
             </div>
           );
         })}

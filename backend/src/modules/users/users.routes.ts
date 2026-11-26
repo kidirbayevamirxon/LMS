@@ -105,7 +105,7 @@ usersRouter.get('/', requireRoles(RoleName.SUPER_ADMIN, RoleName.ADMIN), async (
   }
 });
 
-usersRouter.post('/', requireRoles(RoleName.SUPER_ADMIN), validateBody(createUserSchema), async (req, res, next) => {
+usersRouter.post('/', requireRoles(RoleName.SUPER_ADMIN, RoleName.ADMIN), validateBody(createUserSchema), async (req, res, next) => {
   try {
     const { fullName, phone, email, password, role, language, specialization, salaryPercent } = req.body;
     const roleRecord = await prisma.role.findUnique({ where: { name: role } });
@@ -168,7 +168,7 @@ usersRouter.post('/', requireRoles(RoleName.SUPER_ADMIN), validateBody(createUse
   }
 });
 
-usersRouter.patch('/:id', requireRoles(RoleName.SUPER_ADMIN), validateBody(updateUserSchema), async (req, res, next) => {
+usersRouter.patch('/:id', requireRoles(RoleName.SUPER_ADMIN, RoleName.ADMIN), validateBody(updateUserSchema), async (req, res, next) => {
   try {
     const id = String(req.params.id);
     const existing = await prisma.user.findUnique({ where: { id }, include: { role: true } });
