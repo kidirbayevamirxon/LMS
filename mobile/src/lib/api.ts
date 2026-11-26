@@ -15,26 +15,22 @@ export interface UserSession {
   studentId?: string | null;
 }
 
-const STORAGE_API_URL = 'edumanager_api_url';
 const STORAGE_ACCESS = 'edumanager_access_token';
 const STORAGE_REFRESH = 'edumanager_refresh_token';
 const STORAGE_USER = 'edumanager_user';
 
+const DEFAULT_API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://13.140.203.137:8088/api').replace(/\/$/, '');
+
 export function getApiBaseUrl(): string {
   if (typeof window !== 'undefined') {
-    const custom = localStorage.getItem(STORAGE_API_URL);
-    if (custom) return custom.replace(/\/$/, '');
-    if (window.location.hostname && window.location.hostname !== 'localhost' && !window.location.protocol.startsWith('capacitor')) {
+    const isCapacitor =
+      window.location.protocol.startsWith('capacitor') ||
+      (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor?.isNativePlatform?.();
+    if (!isCapacitor && window.location.hostname && window.location.hostname !== 'localhost') {
       return `${window.location.origin}/api`;
     }
   }
-  return (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/$/, '');
-}
-
-export function setApiBaseUrl(url: string): void {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(STORAGE_API_URL, url.replace(/\/$/, ''));
-  }
+  return DEFAULT_API_URL;
 }
 
 export function getStoredTokens(): AuthTokens | null {

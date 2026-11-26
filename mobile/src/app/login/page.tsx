@@ -2,9 +2,8 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Lock, Phone, Server, Sparkles } from 'lucide-react';
+import { Lock, Phone, Sparkles } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
-import { getApiBaseUrl, setApiBaseUrl } from '@/lib/api';
 
 const DEMO_ACCOUNTS = [
   { label: 'Super Admin', phone: '+998901000001' },
@@ -19,8 +18,6 @@ export default function LoginPage() {
   const router = useRouter();
   const [phone, setPhone] = useState('+998901000001');
   const [password, setPassword] = useState('EduManager2026!');
-  const [showServer, setShowServer] = useState(false);
-  const [serverUrl, setServerUrl] = useState(() => getApiBaseUrl());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -29,7 +26,6 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      setApiBaseUrl(serverUrl);
       await login(phone, password);
       router.push('/');
     } catch (err) {
@@ -90,25 +86,6 @@ export default function LoginPage() {
               />
             </div>
           </div>
-
-          <button
-            type="button"
-            onClick={() => setShowServer(!showServer)}
-            className="flex items-center gap-1.5 text-xs text-blue-200 hover:text-white"
-          >
-            <Server className="w-3.5 h-3.5" />
-            {t.auth.serverUrl}
-          </button>
-
-          {showServer && (
-            <input
-              type="url"
-              value={serverUrl}
-              onChange={(e) => setServerUrl(e.target.value)}
-              className="w-full rounded-xl bg-black/30 border border-white/20 px-3 py-2 text-xs text-white"
-              placeholder="http://10.0.2.2:3001/api"
-            />
-          )}
 
           {error && (
             <div className="p-3 rounded-2xl bg-red-500/20 border border-red-400/40 text-xs text-red-100">

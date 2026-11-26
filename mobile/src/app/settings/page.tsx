@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Bell, Globe, Moon, Plus, Server, Settings as SettingsIcon, Shield, Sun, X } from 'lucide-react';
+import { Bell, Globe, Moon, Plus, Settings as SettingsIcon, Shield, Sun, X } from 'lucide-react';
 import { LoadingState, StatusBadge } from '@/components/UiStates';
 import { useApp } from '@/context/AppContext';
-import { apiRequest, getApiBaseUrl, setApiBaseUrl } from '@/lib/api';
+import { apiRequest } from '@/lib/api';
 
 interface CenterSettings {
   centerName: string;
@@ -37,7 +37,6 @@ interface StaffUser {
 export default function SettingsPage() {
   const { t, user, darkMode, toggleDarkMode, lang, setLang } = useApp();
   const [tab, setTab] = useState<'general' | 'notifications' | 'users'>('general');
-  const [serverUrl, setServerUrl] = useState(() => getApiBaseUrl());
   const [center, setCenter] = useState<CenterSettings | null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [users, setUsers] = useState<StaffUser[]>([]);
@@ -77,7 +76,6 @@ export default function SettingsPage() {
     e.preventDefault();
     if (!center) return;
     try {
-      setApiBaseUrl(serverUrl);
       await apiRequest('/settings', {
         method: 'PATCH',
         body: JSON.stringify({
@@ -148,7 +146,7 @@ export default function SettingsPage() {
       ) : tab === 'general' ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="m3-card p-5 space-y-4">
-            <h3 className="font-bold text-sm">Ilova ko‘rinishi va ulanish</h3>
+            <h3 className="font-bold text-sm">Ilova ko‘rinishi va til</h3>
             <div className="flex items-center justify-between m3-tonal-card p-3.5">
               <span className="text-sm font-medium flex items-center gap-2">
                 {darkMode ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
@@ -175,27 +173,6 @@ export default function SettingsPage() {
                   className={`px-3 py-1 rounded-xl text-xs font-bold ${lang === 'ru' ? 'bg-blue-600 text-white' : 'bg-white/60 dark:bg-slate-800'}`}
                 >
                   Русский
-                </button>
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold flex items-center gap-1.5">
-                <Server className="w-3.5 h-3.5" /> {t.auth.serverUrl}
-              </label>
-              <div className="flex gap-2">
-                <input
-                  value={serverUrl}
-                  onChange={(e) => setServerUrl(e.target.value)}
-                  className="m3-input text-xs flex-1"
-                />
-                <button
-                  onClick={() => {
-                    setApiBaseUrl(serverUrl);
-                    alert('API manzili saqlandi');
-                  }}
-                  className="px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-semibold"
-                >
-                  Saqlash
                 </button>
               </div>
             </div>
