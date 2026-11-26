@@ -278,5 +278,21 @@ describe('EduManager Full Backend Integration Tests', () => {
       .delete(`/api/groups/${tempGroupId}`)
       .set('Authorization', `Bearer ${adminToken}`);
     expect(delGroupRes.status).toBe(200);
+
+    // Create & delete temporary course
+    const tempCourseRes = await request(app)
+      .post('/api/courses')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        name: `Temp Course ${Date.now()}`,
+        durationMonths: 3,
+        monthlyPrice: 400000,
+        hasCertificate: false,
+      });
+    expect(tempCourseRes.status).toBe(201);
+    const delCourseRes = await request(app)
+      .delete(`/api/courses/${tempCourseRes.body.data.id}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(delCourseRes.status).toBe(200);
   });
 });

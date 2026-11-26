@@ -4,7 +4,7 @@ import { prisma } from '../../config/prisma.js';
 import { authenticate, requireRoles } from '../../middleware/auth.middleware.js';
 import { validateBody } from '../../middleware/validate.middleware.js';
 import { recordAuditLog } from '../../utils/audit.js';
-import { NotFoundError } from '../../utils/errors.js';
+import { ConflictError, NotFoundError } from '../../utils/errors.js';
 import { paginatedResponse, parsePagination } from '../../utils/pagination.js';
 import { createCourseSchema, updateCourseSchema } from './groups.schema.js';
 
@@ -95,17 +95,56 @@ coursesRouter.delete(
   async (req, res, next) => {
     try {
       const id = String(req.params.id);
-      const existing = await prisma.course.findUnique({ where: { id } });
+      const force = req.query.force === 'true';
+      const existing = await prisma.course.findUnique({
+        where: { id },
+        include: {
+          _count: { select: { groups: true, paymentMonths: true, certificates: true } },
+        },
+      });
       if (!existing) throw new NotFoundError('Kurs topilmadi');
-      await prisma.course.update({ where: { id }, data: { status: 'ARCHIVED' } });
+
+      if (existing._count.certificates > 0) {
+        await prisma.course.update({ where: { id }, data: { status: 'ARCHIVED' } });
+        await recordAuditLog({
+          userId: req.user!.userId,
+          action: 'COURSE_ARCHIVE',
+          entity: 'courses',
+          entityId: id,
+          req,
+        });
+        res.json({
+          success: true,
+          archived: true,
+          message: 'Kursga sertifikatlar bog‘langani sababli kurs arxivlandi',
+        });
+        return;
+      }
+
+      if (existing._count.groups > 0 || existing._count.paymentMonths > 0) {
+        if (!force) {
+          throw new ConflictError(
+            `Bu kursda ${existing._count.groups} ta guruh mavjud. Avval guruhlarni o‘chiring yoki tasdiqlang.`,
+          );
+        }
+        await prisma.$transaction(async (tx) => {
+          await tx.group.deleteMany({ where: { courseId: id } });
+          await tx.paymentMonth.deleteMany({ where: { courseId: id } });
+          await tx.course.delete({ where: { id } });
+        });
+      } else {
+        await prisma.course.delete({ where: { id } });
+      }
+
       await recordAuditLog({
         userId: req.user!.userId,
-        action: 'COURSE_ARCHIVE',
+        action: 'COURSE_DELETE',
         entity: 'courses',
         entityId: id,
+        oldValues: { name: existing.name },
         req,
       });
-      res.json({ success: true, message: 'Kurs arxivlandi' });
+      res.json({ success: true, message: 'Kurs o‘chirildi' });
     } catch (err) {
       next(err);
     }

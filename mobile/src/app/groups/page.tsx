@@ -142,6 +142,24 @@ export default function GroupsPage() {
     }
   };
 
+  const handleDeleteCourse = async (course: Course) => {
+    if (!confirm(`"${course.name}" kursini o‘chirmoqchimisiz?`)) return;
+    try {
+      await apiRequest(`/courses/${course.id}`, { method: 'DELETE' });
+      await load();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Kursni o‘chirishda xatolik';
+      if (msg.includes('guruh mavjud')) {
+        if (confirm(`${msg}\n\nKursni unga tegishli barcha guruhlar bilan birga o‘chirishni tasdiqlaysizmi?`)) {
+          await apiRequest(`/courses/${course.id}?force=true`, { method: 'DELETE' });
+          await load();
+        }
+      } else {
+        alert(msg);
+      }
+    }
+  };
+
   const handleEnroll = async () => {
     if (!selectedGroup || !enrollStudentId) return;
     try {
@@ -354,11 +372,22 @@ export default function GroupsPage() {
           {courses.map((c) => (
             <div key={c.id} className="m3-card p-5 space-y-2.5">
               <div className="flex items-start justify-between gap-2">
-                <h3 className="font-bold text-base flex items-center gap-2">
+                <h3 className="font-bold text-base flex items-center gap-2 min-w-0">
                   <BookOpen className="w-4 h-4 text-blue-600 shrink-0" />
-                  <span>{c.name}</span>
+                  <span className="truncate">{c.name}</span>
                 </h3>
-                <StatusBadge status={c.status} />
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <StatusBadge status={c.status} />
+                  {canManage && (
+                    <button
+                      onClick={() => handleDeleteCourse(c)}
+                      className="p-1.5 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20"
+                      title="Kursni o‘chirish"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
               <p className="text-xs opacity-75">{c.description || '-'}</p>
               <div className="pt-2 border-t flex justify-between text-xs font-semibold" style={{ borderColor: 'var(--md-outline)' }}>
