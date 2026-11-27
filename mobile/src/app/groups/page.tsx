@@ -92,7 +92,9 @@ export default function GroupsPage() {
     endDate: new Date(Date.now() + 180 * 86400000).toISOString().slice(0, 10),
     maxStudents: '15',
     room: 'A-101',
+    studentIds: [] as string[],
   });
+  const [groupStudentPick, setGroupStudentPick] = useState('');
 
   const canManage = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
 
@@ -235,6 +237,20 @@ export default function GroupsPage() {
         }),
       });
       setShowGroupModal(false);
+      setGroupForm({
+        name: '',
+        courseId: '',
+        teacherId: '',
+        lessonDays: ['MON', 'WED', 'FRI'],
+        startTime: '09:00',
+        endTime: '11:00',
+        startDate: new Date().toISOString().slice(0, 10),
+        endDate: new Date(Date.now() + 180 * 86400000).toISOString().slice(0, 10),
+        maxStudents: '15',
+        room: 'A-101',
+        studentIds: [],
+      });
+      setGroupStudentPick('');
       await load();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Xatolik');
@@ -274,7 +290,10 @@ export default function GroupsPage() {
               {t.groups.addCourse}
             </button>
             <button
-              onClick={() => setShowGroupModal(true)}
+              onClick={() => {
+                setShowGroupModal(true);
+                load();
+              }}
               className="px-4 py-2 rounded-2xl bg-blue-600 text-white text-xs font-semibold flex items-center gap-1.5 shadow"
             >
               <Plus className="w-4 h-4" />
@@ -646,6 +665,58 @@ export default function GroupsPage() {
               <input type="date" value={groupForm.endDate} onChange={(e) => setGroupForm({ ...groupForm, endDate: e.target.value })} className="m3-input text-sm" />
             </div>
             <input type="number" placeholder="Maksimal o‘quvchilar" value={groupForm.maxStudents} onChange={(e) => setGroupForm({ ...groupForm, maxStudents: e.target.value })} className="m3-input text-sm" />
+            <div className="space-y-2">
+              <label className="text-xs font-semibold opacity-75">O‘quvchilar qo‘shish (ixtiyoriy)</label>
+              <div className="flex gap-2">
+                <select
+                  value={groupStudentPick}
+                  onChange={(e) => {
+                    const sid = e.target.value;
+                    setGroupStudentPick('');
+                    if (sid && !groupForm.studentIds.includes(sid)) {
+                      setGroupForm({ ...groupForm, studentIds: [...groupForm.studentIds, sid] });
+                    }
+                  }}
+                  className="m3-input text-sm flex-1"
+                >
+                  <option value="">
+                    {allStudents.length === 0 ? 'O‘quvchilar topilmadi' : 'O‘quvchi tanlang...'}
+                  </option>
+                  {allStudents
+                    .filter((s) => !groupForm.studentIds.includes(s.id))
+                    .map((s) => (
+                      <option key={s.id} value={s.id}>{s.fullName} ({s.phone})</option>
+                    ))}
+                </select>
+              </div>
+              {groupForm.studentIds.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {groupForm.studentIds.map((sid) => {
+                    const st = allStudents.find((s) => s.id === sid);
+                    return (
+                      <span
+                        key={sid}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-500/15 text-blue-600 text-xs font-semibold"
+                      >
+                        {st?.fullName ?? sid}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setGroupForm({
+                              ...groupForm,
+                              studentIds: groupForm.studentIds.filter((id) => id !== sid),
+                            })
+                          }
+                          className="hover:text-red-500"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
             <button type="submit" className="w-full py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold">{t.common.save}</button>
           </form>
         </div>

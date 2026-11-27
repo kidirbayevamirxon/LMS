@@ -158,7 +158,12 @@ export default function StudentsPage() {
           </a>
           {canManage && (
             <button
-              onClick={() => setShowCreate(true)}
+              onClick={() => {
+                setShowCreate(true);
+                apiRequest<{ data: GroupOption[] }>('/groups?limit=100')
+                  .then((res) => setGroups(res.data))
+                  .catch(() => {});
+              }}
               className="px-4 py-2 rounded-2xl bg-blue-600 text-white text-xs font-semibold flex items-center gap-1.5 shadow"
             >
               <Plus className="w-4 h-4" />
@@ -359,9 +364,13 @@ export default function StudentsPage() {
                   }}
                   className="m3-input text-sm"
                 >
-                  <option value="">Guruh tanlang (ixtiyoriy)</option>
+                  <option value="">
+                    {groups.length === 0 ? 'Guruhlar topilmadi' : 'Guruh tanlang (ixtiyoriy)'}
+                  </option>
                   {groups.map((g) => (
-                    <option key={g.id} value={g.id}>{g.name} — {g.course.name}</option>
+                    <option key={g.id} value={g.id}>
+                      {g.name}{g.course?.name ? ` — ${g.course.name}` : ''}
+                    </option>
                   ))}
                 </select>
                 <input

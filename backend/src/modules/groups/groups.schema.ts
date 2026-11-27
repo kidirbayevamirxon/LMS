@@ -24,6 +24,7 @@ export const createGroupSchema = z.object({
   maxStudents: z.coerce.number().int().min(1).max(200).default(15),
   room: z.string().optional().nullable(),
   status: z.nativeEnum(GroupStatus).default(GroupStatus.ACTIVE),
+  studentIds: z.array(z.string().uuid()).optional(),
 });
 
 export const updateGroupSchema = createGroupSchema.partial();

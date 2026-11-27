@@ -86,19 +86,50 @@ export async function getGroupById(id: string) {
 }
 
 export async function createGroup(data: Record<string, unknown>, actorId: string, req: Request) {
-  const course = await prisma.course.findUnique({ where: { id: String(data.courseId) } });
+  const { studentIds, ...groupData } = data as { studentIds?: string[]; [key: string]: unknown };
+  const course = await prisma.course.findUnique({ where: { id: String(groupData.courseId) } });
   if (!course) throw new NotFoundError('Kurs topilmadi');
 
-  const teacher = await prisma.teacher.findUnique({ where: { id: String(data.teacherId) } });
+  const teacher = await prisma.teacher.findUnique({ where: { id: String(groupData.teacherId) } });
   if (!teacher) throw new NotFoundError('O‘qituvchi topilmadi');
 
   const created = await prisma.group.create({
-    data: data as never,
+    data: groupData as never,
     include: {
       course: true,
       teacher: { include: { user: { select: { id: true, fullName: true, phone: true } } } },
     },
   });
+
+  if (Array.isArray(studentIds) && studentIds.length > 0) {
+    const uniqueIds = [...new Set(studentIds)];
+    for (const studentId of uniqueIds) {
+      const st = await prisma.student.findUnique({ where: { id: studentId } });
+      if (!st) continue;
+      const fee = Number(st.monthlyFee) > 0 ? Number(st.monthlyFee) : Number(course.monthlyPrice);
+      await prisma.groupStudent.upsert({
+        where: { groupId_studentId: { groupId: created.id, studentId } },
+        update: { status: EnrollmentStatus.ACTIVE, leftAt: null, customMonthlyFee: fee },
+        create: {
+          groupId: created.id,
+          studentId,
+          customMonthlyFee: fee,
+          status: EnrollmentStatus.ACTIVE,
+        },
+      });
+      await prisma.studentCourse.upsert({
+        where: { studentId_courseId: { studentId, courseId: course.id } },
+        update: { status: StudentCourseStatus.ENROLLED },
+        create: {
+          studentId,
+          courseId: course.id,
+          monthlyFee: fee,
+          status: StudentCourseStatus.ENROLLED,
+        },
+      });
+      await syncStudentPaymentMonths(studentId);
+    }
+  }
 
   await recordAuditLog({
     userId: actorId,

@@ -78,6 +78,11 @@ body {
   box-shadow: 0 0 0 3px rgba(30, 64, 175, 0.14);
 }
 
+select.m3-input option {
+  background-color: var(--md-surface-container);
+  color: var(--md-on-surface);
+}
+
 .pb-safe {
   padding-bottom: max(0.35rem, env(safe-area-inset-bottom));
 }
