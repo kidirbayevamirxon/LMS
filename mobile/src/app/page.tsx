@@ -4,11 +4,15 @@ import React, { useEffect, useState } from 'react';
 import {
   AlertTriangle,
   Award,
+  Bell,
   BookOpen,
+  CalendarClock,
   CheckCircle2,
+  Clock,
   CreditCard,
   GraduationCap,
   Layers,
+  MapPin,
   UserCheck,
   Users,
   XCircle,
@@ -47,12 +51,41 @@ interface DashboardResponse {
     status: string;
     student: { fullName: string };
   }>;
+  paymentDueDay?: number;
+  notifications?: Array<{
+    id: string;
+    title: string;
+    body: string;
+    type: string;
+    isRead: boolean;
+    createdAt: string;
+  }>;
   student?: {
     fullName: string;
     phone: string;
     status: string;
-    groupStudents: Array<{ group: { name: string; startTime: string; endTime: string; course: { name: string } } }>;
-    paymentMonths: Array<{ id: string; billingYear: number; billingMonth: number; expectedAmount: string; paidAmount: string; remainingDebt: string; status: string }>;
+    groupStudents: Array<{
+      group: {
+        name: string;
+        lessonDays: string[];
+        startTime: string;
+        endTime: string;
+        room?: string | null;
+        course: { name: string };
+        teacher?: { user: { fullName: string; phone: string } };
+      };
+    }>;
+    paymentMonths: Array<{
+      id: string;
+      billingYear: number;
+      billingMonth: number;
+      expectedAmount: string;
+      paidAmount: string;
+      remainingDebt: string;
+      dueDate: string;
+      status: string;
+      course?: { name: string };
+    }>;
     attendances: Array<{ id: string; attendanceDate: string; status: string; method: string }>;
     certificates: Array<{ id: string; certificateNumber: string; courseName: string; issuedDate: string; status: string }>;
   };
@@ -87,46 +120,158 @@ export default function DashboardPage() {
 
   if (data.mode === 'STUDENT' && data.student) {
     const st = data.student;
+    const dueDay = data.paymentDueDay ?? 10;
+    const unpaidMonths = st.paymentMonths.filter(
+      (pm) => Number(pm.remainingDebt) > 0 && pm.status !== 'CANCELLED' && pm.status !== 'REFUNDED',
+    );
+    const totalDebt = unpaidMonths.reduce((sum, pm) => sum + Number(pm.remainingDebt), 0);
+    const hasOverdue = unpaidMonths.some((pm) => pm.status === 'OVERDUE');
+    const nextUnpaid = unpaidMonths[unpaidMonths.length - 1];
+    const notifs = data.notifications ?? [];
+
     return (
-      <div className="space-y-5">
+      <div className="space-y-4">
         <div className="m3-card p-6 bg-gradient-to-r from-blue-700 to-teal-700 text-white border-none">
           <div className="text-xs uppercase tracking-wider opacity-80">O‘quvchi kabineti</div>
           <h1 className="text-2xl font-bold mt-1">{st.fullName}</h1>
           <p className="text-sm opacity-90">{st.phone}</p>
         </div>
 
+        {/* Viznos / To'lov eslatmasi banneri */}
+        <div
+          className={`m3-card p-4 flex flex-wrap items-center justify-between gap-3 ${
+            hasOverdue
+              ? 'border-red-500/50 bg-red-500/10'
+              : totalDebt > 0
+                ? 'border-amber-500/50 bg-amber-500/10'
+                : 'border-emerald-500/40 bg-emerald-500/10'
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <CalendarClock
+              className={`w-6 h-6 shrink-0 mt-0.5 ${
+                hasOverdue ? 'text-red-500' : totalDebt > 0 ? 'text-amber-500' : 'text-emerald-600'
+              }`}
+            />
+            <div>
+              <div className="font-bold text-sm">
+                {hasOverdue
+                  ? 'To‘lov muddati o‘tgan!'
+                  : totalDebt > 0
+                    ? 'Viznos (oylik to‘lov) kutilmoqda'
+                    : 'Barcha oylik to‘lovlar to‘langan'}
+              </div>
+              <div className="text-xs opacity-80 mt-0.5">
+                Oylik to‘lov muddati: har oyning <b>{dueDay}-sanasi</b>
+                {nextUnpaid && (
+                  <> • Eng yaqin muddat: <b>{nextUnpaid.dueDate.slice(0, 10)}</b></>
+                )}
+              </div>
+            </div>
+          </div>
+          {totalDebt > 0 && (
+            <div className="text-right">
+              <div className="text-[11px] opacity-75">Jami to‘lanishi kerak</div>
+              <div className={`text-base font-bold ${hasOverdue ? 'text-red-500' : 'text-amber-600'}`}>
+                {formatMoney(totalDebt)}
+              </div>
+            </div>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="m3-card p-5 space-y-3">
-            <h2 className="font-bold text-sm">Mening guruhlarim</h2>
-            {st.groupStudents.map((gs, i) => (
-              <div key={i} className="m3-tonal-card p-3 flex justify-between items-center text-sm">
-                <div>
-                  <div className="font-semibold">{gs.group.name}</div>
-                  <div className="text-xs opacity-70">{gs.group.course.name}</div>
+            <h2 className="font-bold text-sm flex items-center gap-2">
+              <Clock className="w-4 h-4 text-blue-600" />
+              Mening guruhlarim va dars vaqti
+            </h2>
+            {st.groupStudents.length === 0 ? (
+              <p className="text-xs opacity-70">Hozircha faol guruhga biriktirilmagansiz</p>
+            ) : (
+              st.groupStudents.map((gs, i) => (
+                <div key={i} className="m3-tonal-card p-3.5 space-y-2 text-sm">
+                  <div className="flex justify-between items-start gap-2">
+                    <div>
+                      <div className="font-bold">{gs.group.name}</div>
+                      <div className="text-xs opacity-75">{gs.group.course.name}</div>
+                      {gs.group.teacher && (
+                        <div className="text-[11px] opacity-70 mt-0.5">
+                          Ustoz: {gs.group.teacher.user.fullName}
+                        </div>
+                      )}
+                    </div>
+                    <span className="px-2.5 py-1 rounded-xl bg-blue-600 text-white text-xs font-bold shrink-0">
+                      {gs.group.startTime}–{gs.group.endTime}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                    {(Array.isArray(gs.group.lessonDays) ? gs.group.lessonDays : []).map((d) => (
+                      <span key={d} className="px-2 py-0.5 rounded-lg bg-blue-500/15 text-blue-600 text-[10px] font-bold">
+                        {d}
+                      </span>
+                    ))}
+                    {gs.group.room && (
+                      <span className="inline-flex items-center gap-1 text-[11px] opacity-75 ml-auto">
+                        <MapPin className="w-3 h-3" /> Xona: {gs.group.room}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <span className="text-xs font-bold text-blue-600">{gs.group.startTime}–{gs.group.endTime}</span>
-              </div>
-            ))}
+              ))
+            )}
           </div>
 
           <div className="m3-card p-5 space-y-3">
-            <h2 className="font-bold text-sm">Oylik to‘lov jadvali</h2>
-            {st.paymentMonths.map((pm) => (
-              <div key={pm.id} className="m3-tonal-card p-3 flex justify-between items-center text-xs">
-                <div>
-                  <div className="font-bold">{pm.billingYear}-{String(pm.billingMonth).padStart(2, '0')}</div>
-                  <div className="opacity-70">To‘langan: {formatMoney(pm.paidAmount)}</div>
+            <h2 className="font-bold text-sm flex items-center gap-2">
+              <CreditCard className="w-4 h-4 text-emerald-600" />
+              Viznos / Oylik to‘lov jadvali
+            </h2>
+            {st.paymentMonths.length === 0 ? (
+              <p className="text-xs opacity-70">To‘lov jadvali mavjud emas</p>
+            ) : (
+              st.paymentMonths.map((pm) => (
+                <div key={pm.id} className="m3-tonal-card p-3 flex justify-between items-center text-xs">
+                  <div>
+                    <div className="font-bold">
+                      {pm.billingYear}-{String(pm.billingMonth).padStart(2, '0')}
+                      {pm.course?.name ? ` • ${pm.course.name}` : ''}
+                    </div>
+                    <div className="opacity-70">
+                      Muddat: {pm.dueDate.slice(0, 10)} • Reja: {formatMoney(pm.expectedAmount)}
+                    </div>
+                    <div className="opacity-70">To‘langan: {formatMoney(pm.paidAmount)}</div>
+                  </div>
+                  <div className="text-right space-y-1">
+                    <StatusBadge status={pm.status} />
+                    {Number(pm.remainingDebt) > 0 && (
+                      <div className="text-red-500 font-semibold">Qarz: {formatMoney(pm.remainingDebt)}</div>
+                    )}
+                  </div>
                 </div>
-                <div className="text-right space-y-1">
-                  <StatusBadge status={pm.status} />
-                  {Number(pm.remainingDebt) > 0 && (
-                    <div className="text-red-500 font-semibold">Qarz: {formatMoney(pm.remainingDebt)}</div>
-                  )}
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Bildirishnomalar */}
+        {notifs.length > 0 && (
+          <div className="m3-card p-5 space-y-2.5">
+            <h2 className="font-bold text-sm flex items-center gap-2">
+              <Bell className="w-4 h-4 text-amber-500" />
+              Bildirishnomalar ({notifs.length})
+            </h2>
+            {notifs.map((n) => (
+              <div key={n.id} className="m3-tonal-card p-3 flex flex-wrap justify-between items-start gap-2 text-xs">
+                <div className="min-w-0 flex-1">
+                  <div className="font-bold">{n.title}</div>
+                  <p className="opacity-80 mt-0.5">{n.body}</p>
+                  <div className="text-[10px] opacity-55 mt-1">{n.createdAt.slice(0, 16).replace('T', ' ')}</div>
                 </div>
+                <StatusBadge status={n.type} />
               </div>
             ))}
           </div>
-        </div>
+        )}
       </div>
     );
   }

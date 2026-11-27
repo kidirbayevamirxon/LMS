@@ -12,12 +12,24 @@ notificationsRouter.get('/', async (req, res, next) => {
   try {
     const { page, limit, skip } = parsePagination(req.query as Record<string, unknown>, 30);
     const isAdmin = req.user!.role === RoleName.SUPER_ADMIN || req.user!.role === RoleName.ADMIN;
+    let studentRecord: { id: string } | null = null;
+    if (req.user!.role === RoleName.STUDENT) {
+      studentRecord = await prisma.student.findUnique({
+        where: { userId: req.user!.userId },
+        select: { id: true },
+      });
+    }
 
     const where = isAdmin
       ? {
           OR: [{ userId: req.user!.userId }, { userId: null }],
         }
-      : { userId: req.user!.userId };
+      : {
+          OR: [
+            { userId: req.user!.userId },
+            ...(studentRecord ? [{ studentId: studentRecord.id }] : []),
+          ],
+        };
 
     const [items, total, unreadCount] = await Promise.all([
       prisma.notification.findMany({

@@ -12,15 +12,24 @@ const server = app.listen(env.PORT, () => {
   console.log(`Swagger Docs available at http://localhost:${env.PORT}/api/docs`);
 });
 
-// Daily billing & reminder check at 08:00 Tashkent time
-cron.schedule('0 3 * * *', async () => {
+// Billing & payment reminder check every 6 hours + once shortly after startup
+cron.schedule('0 */6 * * *', async () => {
   try {
     await syncStudentPaymentMonths();
     await runPeriodicNotificationChecks();
   } catch (err) {
-    console.error('Daily cron failed:', err);
+    console.error('Periodic notification cron failed:', err);
   }
 });
+
+setTimeout(async () => {
+  try {
+    await syncStudentPaymentMonths();
+    await runPeriodicNotificationChecks();
+  } catch (err) {
+    console.error('Startup notification check failed:', err);
+  }
+}, 15000);
 
 async function shutdown() {
   console.log('Shutting down EduManager Backend...');

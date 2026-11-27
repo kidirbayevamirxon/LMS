@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { prisma } from '../../config/prisma.js';
 import { authenticate } from '../../middleware/auth.middleware.js';
 import { toUtcDateOnly } from '../attendance/attendance.service.js';
+import { runPeriodicNotificationChecks } from '../notifications/notifications.service.js';
 import { syncStudentPaymentMonths } from '../payments/payments.billing.js';
 
 export const dashboardRouter = Router();
@@ -11,25 +12,58 @@ dashboardRouter.use(authenticate);
 dashboardRouter.get('/', async (req, res, next) => {
   try {
     await syncStudentPaymentMonths();
+    await runPeriodicNotificationChecks().catch(() => {});
     const now = new Date();
     const todayDate = toUtcDateOnly(now);
     const startOfMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 
     // If student role, return student-focused dashboard
     if (req.user!.role === RoleName.STUDENT) {
-      const student = await prisma.student.findUnique({
-        where: { userId: req.user!.userId },
-        include: {
-          groupStudents: {
-            where: { status: EnrollmentStatus.ACTIVE },
-            include: { group: { include: { course: true } } },
+      const [student, setting] = await Promise.all([
+        prisma.student.findUnique({
+          where: { userId: req.user!.userId },
+          include: {
+            groupStudents: {
+              where: { status: EnrollmentStatus.ACTIVE },
+              include: {
+                group: {
+                  include: {
+                    course: true,
+                    teacher: { include: { user: { select: { fullName: true, phone: true } } } },
+                  },
+                },
+              },
+            },
+            paymentMonths: {
+              orderBy: [{ billingYear: 'desc' }, { billingMonth: 'desc' }],
+              include: { course: { select: { name: true } } },
+            },
+            attendances: { orderBy: { attendanceDate: 'desc' }, take: 20 },
+            certificates: true,
           },
-          paymentMonths: { orderBy: [{ billingYear: 'desc' }, { billingMonth: 'desc' }] },
-          attendances: { orderBy: { attendanceDate: 'desc' }, take: 20 },
-          certificates: true,
+        }),
+        prisma.setting.findFirst({ select: { paymentDueDay: true, centerName: true } }),
+      ]);
+
+      const notifications = student
+        ? await prisma.notification.findMany({
+            where: {
+              OR: [{ userId: req.user!.userId }, { studentId: student.id }],
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 10,
+          })
+        : [];
+
+      res.json({
+        success: true,
+        data: {
+          mode: 'STUDENT',
+          student,
+          paymentDueDay: setting?.paymentDueDay ?? 10,
+          notifications,
         },
       });
-      res.json({ success: true, data: { mode: 'STUDENT', student } });
       return;
     }
 

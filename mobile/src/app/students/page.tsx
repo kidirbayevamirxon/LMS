@@ -60,6 +60,8 @@ export default function StudentsPage() {
     birthDate: '',
     monthlyFee: '500000',
     groupId: '',
+    createUserAccount: true,
+    password: '',
   });
   const [saving, setSaving] = useState(false);
 
@@ -110,6 +112,10 @@ export default function StudentsPage() {
           birthDate: form.birthDate || null,
           monthlyFee: Number(form.monthlyFee || 0),
           groupIds: form.groupId ? [form.groupId] : [],
+          createUserAccount: form.createUserAccount,
+          ...(form.createUserAccount && form.password.trim()
+            ? { password: form.password.trim() }
+            : {}),
         }),
       });
       setShowCreate(false);
@@ -122,6 +128,8 @@ export default function StudentsPage() {
         birthDate: '',
         monthlyFee: '500000',
         groupId: '',
+        createUserAccount: true,
+        password: '',
       });
       await loadData();
     } catch (err) {
@@ -380,6 +388,26 @@ export default function StudentsPage() {
                   onChange={(e) => setForm({ ...form, monthlyFee: e.target.value })}
                   className="m3-input text-sm"
                 />
+              </div>
+              <div className="m3-tonal-card p-3.5 space-y-2.5">
+                <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.createUserAccount}
+                    onChange={(e) => setForm({ ...form, createUserAccount: e.target.checked })}
+                  />
+                  O‘quvchiga tizimga kirish akkaunti ochilsin
+                </label>
+                {form.createUserAccount && (
+                  <input
+                    type="text"
+                    minLength={6}
+                    placeholder="Kirish paroli (bo‘sh qoldirilsa: EduManager2026!)"
+                    value={form.password}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
+                    className="m3-input text-sm"
+                  />
+                )}
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" onClick={() => setShowCreate(false)} className="px-4 py-2 rounded-xl m3-tonal-card text-sm">
