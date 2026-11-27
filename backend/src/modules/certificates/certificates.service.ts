@@ -255,55 +255,106 @@ function formatCertificateDate(d: Date): string {
 
 function drawLaurelBranch(doc: PDFKit.PDFDocument, baseX: number, baseY: number, dir: -1 | 1) {
   const gold = '#C69D47';
-  const steps = 11;
+  const steps = 13;
   doc.save();
-  doc.strokeColor(gold).lineWidth(1.8);
+  doc.strokeColor(gold).lineWidth(1.6);
   doc.moveTo(baseX, baseY);
-  const tipX = baseX + dir * 24;
-  const tipY = baseY - 228;
+  const tipX = baseX + dir * 26;
+  const tipY = baseY - 245;
   doc.bezierCurveTo(
-    baseX - dir * 32,
-    baseY - 75,
-    baseX - dir * 16,
-    baseY - 165,
+    baseX - dir * 36,
+    baseY - 82,
+    baseX - dir * 18,
+    baseY - 178,
     tipX,
     tipY,
   ).stroke();
+
+  const drawLeaf = (lx: number, ly: number, angleDeg: number, len: number, wid: number) => {
+    doc.save();
+    doc.translate(lx, ly);
+    doc.rotate(angleDeg);
+    doc
+      .moveTo(0, 0)
+      .bezierCurveTo(len * 0.35, -wid, len * 0.75, -wid * 0.85, len, 0)
+      .bezierCurveTo(len * 0.75, wid * 0.85, len * 0.35, wid, 0, 0)
+      .fill(gold);
+    doc.restore();
+  };
 
   for (let i = 1; i <= steps; i++) {
     const t = i / (steps + 1);
     const inv = 1 - t;
     const cx =
       inv * inv * inv * baseX +
-      3 * inv * inv * t * (baseX - dir * 32) +
-      3 * inv * t * t * (baseX - dir * 16) +
+      3 * inv * inv * t * (baseX - dir * 36) +
+      3 * inv * t * t * (baseX - dir * 18) +
       t * t * t * tipX;
     const cy =
       inv * inv * inv * baseY +
-      3 * inv * inv * t * (baseY - 75) +
-      3 * inv * t * t * (baseY - 165) +
+      3 * inv * inv * t * (baseY - 82) +
+      3 * inv * t * t * (baseY - 178) +
       t * t * t * tipY;
 
-    // Outer & inner leaf pair
-    doc.save();
-    doc.translate(cx - dir * 11, cy - 4);
-    doc.rotate(dir * -32);
-    doc.ellipse(0, 0, 12, 4.2).fill(gold);
-    doc.restore();
-
-    doc.save();
-    doc.translate(cx + dir * 10, cy - 8);
-    doc.rotate(dir * 38);
-    doc.ellipse(0, 0, 11.5, 4).fill(gold);
-    doc.restore();
+    const scale = 1 - t * 0.25;
+    drawLeaf(cx, cy, dir === -1 ? -135 : -45, 22 * scale, 5.2 * scale);
+    drawLeaf(cx, cy - 3, dir === -1 ? -50 : -130, 20 * scale, 4.8 * scale);
   }
 
   // Tip leaf
-  doc.save();
-  doc.translate(tipX, tipY - 8);
-  doc.rotate(dir * 12);
-  doc.ellipse(0, 0, 11, 3.8).fill(gold);
+  drawLeaf(tipX, tipY, dir === -1 ? -80 : -100, 20, 4.5);
   doc.restore();
+}
+
+function drawTopLogos(doc: PDFKit.PDFDocument, centerX: number) {
+  // Left emblem: Ministry of Digital Technologies geometric star-cube
+  const mX = centerX - 108;
+  const mY = 44;
+  doc.save();
+  doc.fillColor('#1E4B9B');
+  for (let i = 0; i < 8; i++) {
+    doc.save();
+    doc.translate(mX, mY);
+    doc.rotate(i * 45);
+    doc.moveTo(0, -16).lineTo(4.5, -5.5).lineTo(0, 0).lineTo(-4.5, -5.5).closePath().fill();
+    doc.restore();
+  }
+  doc.fillColor('#FFFFFF').circle(mX, mY, 3.2).fill();
+  doc
+    .font('Helvetica')
+    .fontSize(6.2)
+    .fillColor('#1E4B9B')
+    .text('MINISTRY OF DIGITAL\nTECHNOLOGIES OF THE\nREPUBLIC OF UZBEKISTAN', mX + 20, mY - 12, {
+      width: 95,
+      lineGap: 1.2,
+    });
+  doc.restore();
+
+  // Right emblem: IT PARK
+  const pX = centerX + 26;
+  const pY = 44;
+  doc.save();
+  doc.fillColor('#76B82A').circle(pX, pY, 15).fill();
+  // White stylized person inside green circle
+  doc.fillColor('#FFFFFF').circle(pX, pY - 5, 3).fill();
+  doc
+    .strokeColor('#FFFFFF')
+    .lineWidth(2.4)
+    .lineCap('round')
+    .moveTo(pX - 7, pY - 2)
+    .quadraticCurveTo(pX, pY + 2, pX + 7, pY - 2)
+    .stroke();
+  doc.moveTo(pX, pY).lineTo(pX, pY + 10).stroke();
+  doc
+    .font('Helvetica-Bold')
+    .fontSize(13)
+    .fillColor('#76B82A')
+    .text('IT PARK', pX + 20, pY - 10);
+  doc
+    .font('Helvetica')
+    .fontSize(5.5)
+    .fillColor('#475569')
+    .text('START local & GO global', pX + 20, pY + 5);
   doc.restore();
 }
 
@@ -311,7 +362,7 @@ export async function buildCertificatePdf(id: string): Promise<Buffer> {
   const cert = await getCertificateById(id);
   const setting = await prisma.setting.findFirst();
   const qrBuffer = await QRCode.toBuffer(cert.qrCodeData, {
-    width: 160,
+    width: 170,
     margin: 1,
     color: { dark: '#0F172A', light: '#FFFFFF' },
   });
@@ -326,19 +377,20 @@ export async function buildCertificatePdf(id: string): Promise<Buffer> {
     const w = doc.page.width;
     const h = doc.page.height;
     const gold = '#C69D47';
-    const deepGold = '#9E7422';
-    const espresso = '#1D1109';
+    const deepGold = '#A67C2E';
+    const espresso = '#1F1107';
+    const darkEspresso = '#140903';
 
     // Crisp white canvas
     doc.rect(0, 0, w, h).fill('#FFFFFF');
 
     // Top-left & Top-right 5 nested golden corner angles
     doc.save();
-    doc.strokeColor(gold).lineWidth(2);
+    doc.strokeColor(gold).lineWidth(2.2);
     for (let i = 0; i < 5; i++) {
-      const offset = 18 + i * 10;
-      const hLen = 158 - i * 24;
-      const vLen = 138 - i * 20;
+      const offset = 16 + i * 10.5;
+      const hLen = 168 - i * 24;
+      const vLen = 148 - i * 20;
       // Top-left
       doc.moveTo(offset, offset + vLen).lineTo(offset, offset).lineTo(offset + hLen, offset).stroke();
       // Top-right
@@ -346,38 +398,55 @@ export async function buildCertificatePdf(id: string): Promise<Buffer> {
     }
     doc.restore();
 
-    // Bottom-left ornamental espresso triangle + golden geometric lattice + gold diagonal ribbon
-    const triW = w * 0.295;
-    const triTopY = h * 0.49;
+    // Bottom-left & Bottom-right 2-layer ornamental triangles + diagonal gold ribbons
+    const triOuterW = w * 0.29;
+    const triOuterTopY = h * 0.50;
+    const triInnerW = w * 0.21;
+    const triInnerTopY = h * 0.65;
 
     const drawCornerTriangle = (isRight: boolean) => {
+      // 1. Outer patterned triangle
       doc.save();
       if (!isRight) {
-        doc.moveTo(0, triTopY).lineTo(triW, h).lineTo(0, h).closePath().clip();
-        doc.rect(0, triTopY, triW, h - triTopY).fill(espresso);
+        doc.moveTo(0, triOuterTopY).lineTo(triOuterW, h).lineTo(0, h).closePath().clip();
+        doc.rect(0, triOuterTopY, triOuterW, h - triOuterTopY).fill(espresso);
       } else {
-        doc.moveTo(w, triTopY).lineTo(w - triW, h).lineTo(w, h).closePath().clip();
-        doc.rect(w - triW, triTopY, triW, h - triTopY).fill(espresso);
+        doc.moveTo(w, triOuterTopY).lineTo(w - triOuterW, h).lineTo(w, h).closePath().clip();
+        doc.rect(w - triOuterW, triOuterTopY, triOuterW, h - triOuterTopY).fill(espresso);
       }
 
-      // Golden geometric lattice inside clipped corner
-      doc.strokeColor('#C29843').strokeOpacity(0.36).lineWidth(0.8);
-      const startX = isRight ? w - triW - 20 : -20;
-      const endX = isRight ? w + 20 : triW + 20;
-      for (let gx = startX; gx <= endX; gx += 24) {
-        for (let gy = triTopY - 20; gy <= h + 20; gy += 24) {
-          doc.moveTo(gx, gy - 12).lineTo(gx + 12, gy).lineTo(gx, gy + 12).lineTo(gx - 12, gy).closePath().stroke();
-          doc.circle(gx, gy, 3.5).stroke();
+      // Intricate golden Islamic geometric lattice inside outer triangle
+      doc.strokeColor('#D4AA50').strokeOpacity(0.55).lineWidth(0.75);
+      const startX = isRight ? w - triOuterW - 20 : -20;
+      const endX = isRight ? w + 20 : triOuterW + 20;
+      for (let gx = startX; gx <= endX; gx += 22) {
+        for (let gy = triOuterTopY - 20; gy <= h + 20; gy += 22) {
+          doc.moveTo(gx, gy - 11).lineTo(gx + 11, gy).lineTo(gx, gy + 11).lineTo(gx - 11, gy).closePath().stroke();
+          doc.rect(gx - 7.5, gy - 7.5, 15, 15).stroke();
+          doc.circle(gx, gy, 3).stroke();
         }
       }
       doc.restore();
 
-      // Diagonal golden ribbon edge
+      // Outer diagonal golden ribbon
       doc.save();
-      const x1 = isRight ? w : 0;
-      const x2 = isRight ? w - triW : triW;
-      doc.strokeColor('#C8A045').lineWidth(9).moveTo(x1, triTopY).lineTo(x2, h).stroke();
-      doc.strokeColor('#E6C473').lineWidth(2.5).moveTo(x1, triTopY + 3).lineTo(x2 - (isRight ? -3 : 3), h).stroke();
+      const ox1 = isRight ? w : 0;
+      const ox2 = isRight ? w - triOuterW : triOuterW;
+      doc.strokeColor('#C8A045').lineWidth(8).moveTo(ox1, triOuterTopY).lineTo(ox2, h).stroke();
+      doc.strokeColor('#EAD08A').lineWidth(2).moveTo(ox1, triOuterTopY + 1).lineTo(ox2, h + 1).stroke();
+      doc.restore();
+
+      // 2. Inner solid dark espresso triangle
+      doc.save();
+      if (!isRight) {
+        doc.moveTo(0, triInnerTopY).lineTo(triInnerW, h).lineTo(0, h).closePath().fill(darkEspresso);
+      } else {
+        doc.moveTo(w, triInnerTopY).lineTo(w - triInnerW, h).lineTo(w, h).closePath().fill(darkEspresso);
+      }
+      const ix1 = isRight ? w : 0;
+      const ix2 = isRight ? w - triInnerW : triInnerW;
+      doc.strokeColor('#C8A045').lineWidth(7).moveTo(ix1, triInnerTopY).lineTo(ix2, h).stroke();
+      doc.strokeColor('#EAD08A').lineWidth(1.8).moveTo(ix1, triInnerTopY + 1).lineTo(ix2, h + 1).stroke();
       doc.restore();
     };
 
@@ -385,38 +454,30 @@ export async function buildCertificatePdf(id: string): Promise<Buffer> {
     drawCornerTriangle(true);
 
     // Left & Right golden laurel branches
-    drawLaurelBranch(doc, 118, 388, -1);
-    drawLaurelBranch(doc, w - 118, 388, 1);
+    drawLaurelBranch(doc, 122, 392, -1);
+    drawLaurelBranch(doc, w - 122, 392, 1);
 
-    // Top geometric center emblem + organization subtitle
-    doc.save();
-    doc.fillColor('#1E40AF').circle(w / 2 - 122, 48, 6).fill();
-    doc.fillColor('#16A34A').circle(w / 2 + 122, 48, 6).fill();
-    doc
-      .font('Helvetica-Bold')
-      .fontSize(9.5)
-      .fillColor('#334155')
-      .text('EDUMANAGER  •  EDUCATION PLATFORM', w / 2 - 110, 44, { width: 220, align: 'center' });
-    doc.restore();
+    // Top Ministry & IT Park Logos
+    drawTopLogos(doc, w / 2);
 
     // Main Certificate Typography
     doc
-      .font('Times-Bold')
-      .fontSize(38)
+      .font('Times-Roman')
+      .fontSize(42)
       .fillColor(deepGold)
-      .text('CERTIFICATE', 60, 88, { width: w - 120, align: 'center', characterSpacing: 7 });
+      .text('CERTIFICATE', 60, 86, { width: w - 120, align: 'center', characterSpacing: 9 });
 
     doc
       .font('Times-Roman')
-      .fontSize(16)
+      .fontSize(17)
       .fillColor(deepGold)
-      .text('OF COMPLETION', 60, 138, { width: w - 120, align: 'center', characterSpacing: 4.5 });
+      .text('OF COMPLETION', 60, 140, { width: w - 120, align: 'center', characterSpacing: 5 });
 
     doc
       .font('Helvetica-Bold')
-      .fontSize(11)
-      .fillColor('#8B6316')
-      .text(cert.centerName.toUpperCase(), 60, 166, {
+      .fontSize(11.5)
+      .fillColor(deepGold)
+      .text(cert.centerName.toUpperCase(), 60, 168, {
         width: w - 120,
         align: 'center',
         characterSpacing: 1.5,
@@ -425,21 +486,21 @@ export async function buildCertificatePdf(id: string): Promise<Buffer> {
     doc
       .font('Helvetica')
       .fontSize(12)
-      .fillColor('#1E293B')
+      .fillColor('#0F172A')
       .text('This Certificate has been awarded to', 80, 206, { width: w - 160, align: 'center' });
 
     doc
-      .font('Helvetica-Bold')
-      .fontSize(30)
+      .font('Helvetica')
+      .fontSize(31)
       .fillColor('#0F172A')
       .text(cert.studentFullName, 80, 228, { width: w - 160, align: 'center' });
 
     doc
       .save()
       .strokeColor('#0F172A')
-      .lineWidth(1.6)
-      .moveTo(w / 2 - 195, 268)
-      .lineTo(w / 2 + 195, 268)
+      .lineWidth(1.5)
+      .moveTo(w / 2 - 210, 270)
+      .lineTo(w / 2 + 210, 270)
       .stroke()
       .restore();
 
@@ -448,41 +509,41 @@ export async function buildCertificatePdf(id: string): Promise<Buffer> {
       .fontSize(12)
       .fillColor('#0F172A')
       .text(
-        `«"${cert.courseName}" kursini ${cert.resultScore} natija bilan muvaffaqiyatli yakunladi»`,
+        `<<${cert.courseName}>>\n${cert.resultScore}`,
         140,
-        286,
-        { width: w - 280, align: 'center' },
+        288,
+        { width: w - 280, align: 'center', lineGap: 3 },
       );
 
     const dateRange = `${formatCertificateDate(cert.courseStartDate)} - ${formatCertificateDate(cert.courseEndDate)}`;
     doc
       .font('Helvetica-Bold')
-      .fontSize(11.5)
+      .fontSize(12)
       .fillColor('#0F172A')
-      .text(dateRange, 120, 336, { width: w - 240, align: 'center' });
+      .text(dateRange, 120, 344, { width: w - 240, align: 'center' });
 
     if (cert.status === CertificateStatus.REVOKED) {
       doc
         .font('Helvetica-Bold')
-        .fontSize(22)
+        .fontSize(20)
         .fillColor('#DC2626')
-        .text('BEKOR QILINGAN / REVOKED', 80, 362, { width: w - 160, align: 'center' });
+        .text('BEKOR QILINGAN / REVOKED', 80, 366, { width: w - 160, align: 'center' });
     }
 
     // Footer: Signature (Left), Circular Blue Stamp + Director Name + ID (Center), QR Code (Right)
-    const footerY = 432;
+    const footerY = 438;
 
     // Stylized cursive signature on left
     doc.save();
     doc.strokeColor('#0F172A').lineWidth(1.6);
-    const sigX = w / 2 - 165;
-    const sigY = footerY + 6;
+    const sigX = w / 2 - 168;
+    const sigY = footerY + 4;
     doc
-      .moveTo(sigX, sigY)
-      .bezierCurveTo(sigX + 8, sigY - 26, sigX + 34, sigY - 26, sigX + 22, sigY + 6)
-      .bezierCurveTo(sigX + 12, sigY + 20, sigX + 4, sigY + 12, sigX + 32, sigY - 2)
-      .bezierCurveTo(sigX + 44, sigY - 12, sigX + 52, sigY + 8, sigX + 68, sigY - 4)
-      .bezierCurveTo(sigX + 76, sigY - 10, sigX + 82, sigY + 10, sigX + 96, sigY - 10)
+      .moveTo(sigX, sigY + 10)
+      .bezierCurveTo(sigX + 10, sigY - 28, sigX + 38, sigY - 26, sigX + 24, sigY + 8)
+      .bezierCurveTo(sigX + 14, sigY + 20, sigX + 4, sigY + 12, sigX + 34, sigY - 2)
+      .bezierCurveTo(sigX + 46, sigY - 12, sigX + 54, sigY + 8, sigX + 70, sigY - 4)
+      .bezierCurveTo(sigX + 78, sigY - 10, sigX + 84, sigY + 10, sigX + 98, sigY - 8)
       .stroke();
     doc.restore();
 
@@ -490,13 +551,13 @@ export async function buildCertificatePdf(id: string): Promise<Buffer> {
     const stampCx = w / 2;
     const stampCy = footerY;
     doc.save();
-    doc.strokeColor('#1D4ED8').lineWidth(1.6).circle(stampCx, stampCy, 42).stroke();
-    doc.strokeColor('#1D4ED8').lineWidth(0.9).circle(stampCx, stampCy, 38).stroke();
-    doc.strokeColor('#1D4ED8').lineWidth(1.2).circle(stampCx, stampCy, 24).stroke();
+    doc.strokeColor('#1D4ED8').lineWidth(1.8).circle(stampCx, stampCy, 43).stroke();
+    doc.strokeColor('#1D4ED8').lineWidth(0.9).circle(stampCx, stampCy, 39).stroke();
+    doc.strokeColor('#1D4ED8').lineWidth(1.2).circle(stampCx, stampCy, 25).stroke();
     const stampWords = cert.centerName.toUpperCase().split(/\s+/).slice(0, 3).join('\n');
     doc
       .font('Helvetica-Bold')
-      .fontSize(6)
+      .fontSize(6.2)
       .fillColor('#1D4ED8')
       .text(stampWords, stampCx - 22, stampCy - 11, {
         width: 44,
@@ -507,11 +568,16 @@ export async function buildCertificatePdf(id: string): Promise<Buffer> {
       .font('Helvetica-Bold')
       .fontSize(5.5)
       .fillColor('#1D4ED8')
-      .text('* VERIFIED *', stampCx - 30, stampCy + 28, { width: 60, align: 'center' });
+      .text('*  UZBEKISTAN  *', stampCx - 32, stampCy + 28, { width: 64, align: 'center' });
+    doc
+      .font('Helvetica-Bold')
+      .fontSize(5.2)
+      .fillColor('#1D4ED8')
+      .text('OFFICIAL SEAL', stampCx - 32, stampCy - 35, { width: 64, align: 'center' });
     doc.restore();
 
     // QR Code on right
-    doc.image(qrBuffer, w / 2 + 82, footerY - 42, { width: 84, height: 84 });
+    doc.image(qrBuffer, w / 2 + 80, footerY - 42, { width: 84, height: 84 });
 
     // Director name + Certificate ID centered below stamp
     const director = (setting?.directorName || 'MARKAZ DIREKTORI').toUpperCase();
@@ -519,14 +585,14 @@ export async function buildCertificatePdf(id: string): Promise<Buffer> {
       .font('Helvetica-Bold')
       .fontSize(11)
       .fillColor('#0F172A')
-      .text(director, w / 2 - 140, 492, { width: 280, align: 'center', underline: true });
+      .text(director, w / 2 - 150, 496, { width: 300, align: 'center', underline: true });
 
     doc
       .font('Helvetica-Bold')
       .fontSize(11)
       .fillColor('#0F172A')
-      .text(`ID: ${cert.certificateNumber}`, w / 2 - 140, 512, {
-        width: 280,
+      .text(`ID:${cert.certificateNumber}`, w / 2 - 150, 514, {
+        width: 300,
         align: 'center',
         underline: true,
       });
