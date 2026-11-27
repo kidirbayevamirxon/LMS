@@ -60,7 +60,7 @@ export default function PaymentsPage() {
     amount: '500000',
     paymentMethod: 'CASH',
     billingYear: String(new Date().getUTCFullYear()),
-    billingMonth: '',
+    billingMonth: String(new Date().getUTCMonth() + 1),
     notes: '',
   });
 
@@ -262,7 +262,14 @@ export default function PaymentsPage() {
                     <div className="font-bold text-red-500">{formatMoney(d.totalDebt)}</div>
                     <button
                       onClick={() => {
-                        setPayForm({ ...payForm, studentId: d.student.id, amount: String(d.totalDebt) });
+                        const firstMonth = d.months[0];
+                        setPayForm({
+                          ...payForm,
+                          studentId: d.student.id,
+                          amount: String(d.totalDebt),
+                          billingYear: firstMonth ? String(firstMonth.billingYear) : payForm.billingYear,
+                          billingMonth: firstMonth ? String(firstMonth.billingMonth) : payForm.billingMonth,
+                        });
                         setShowPayModal(true);
                       }}
                       className="text-[11px] text-blue-600 font-semibold underline mt-0.5"
@@ -365,13 +372,26 @@ export default function PaymentsPage() {
                 placeholder="Yil (2026)"
               />
               <select
+                required
                 value={payForm.billingMonth}
                 onChange={(e) => setPayForm({ ...payForm, billingMonth: e.target.value })}
                 className="m3-input text-sm"
               >
-                <option value="">Avto taqsimlash (qarz/oldindan)</option>
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
-                  <option key={m} value={m}>{m}-oy</option>
+                {[
+                  [1, 'Yanvar'],
+                  [2, 'Fevral'],
+                  [3, 'Mart'],
+                  [4, 'Aprel'],
+                  [5, 'May'],
+                  [6, 'Iyun'],
+                  [7, 'Iyul'],
+                  [8, 'Avgust'],
+                  [9, 'Sentyabr'],
+                  [10, 'Oktyabr'],
+                  [11, 'Noyabr'],
+                  [12, 'Dekabr'],
+                ].map(([m, name]) => (
+                  <option key={m} value={m}>{name}</option>
                 ))}
               </select>
             </div>
