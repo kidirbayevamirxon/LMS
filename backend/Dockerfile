@@ -17,6 +17,7 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 COPY prisma ./prisma
 RUN npx prisma generate
+COPY assets ./assets
 COPY --from=builder /app/dist ./dist
 RUN mkdir -p /app/uploads && chown -R node:node /app
 USER node
