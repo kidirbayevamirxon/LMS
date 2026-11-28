@@ -60,7 +60,7 @@ export default function LoginPage() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 className="w-full rounded-2xl bg-white/10 border border-white/20 pl-10 pr-4 py-3 text-sm text-white placeholder-white/40 outline-none focus:border-blue-400"
-                placeholder="+998901000001"
+                placeholder="+998"
                 required
               />
             </div>
