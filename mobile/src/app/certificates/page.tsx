@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Award, Ban, Download, ExternalLink, Eye, Plus, Printer, Share2, X } from 'lucide-react';
 import { Share } from '@capacitor/share';
 import { Capacitor } from '@capacitor/core';
+import QRCode from 'qrcode';
 import { EmptyState, ErrorState, LoadingState, StatusBadge } from '@/components/UiStates';
 import { useApp } from '@/context/AppContext';
 import { apiRequest, buildAuthorizedUrl } from '@/lib/api';
@@ -51,6 +52,7 @@ export default function CertificatesPage() {
   const [error, setError] = useState('');
   const [showGen, setShowGen] = useState(false);
   const [previewCert, setPreviewCert] = useState<CertRow | null>(null);
+  const [previewQrUrl, setPreviewQrUrl] = useState('');
   const [form, setForm] = useState({ studentId: '', courseId: '', resultScore: '95% (A+)' });
 
   const canManage = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
@@ -79,6 +81,16 @@ export default function CertificatesPage() {
   useEffect(() => {
     if (user) load();
   }, [user]);
+
+  useEffect(() => {
+    if (!previewCert) {
+      setPreviewQrUrl('');
+      return;
+    }
+    QRCode.toDataURL(previewCert.qrCodeData, { width: 220, margin: 1 })
+      .then(setPreviewQrUrl)
+      .catch(() => setPreviewQrUrl(''));
+  }, [previewCert]);
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -235,146 +247,63 @@ export default function CertificatesPage() {
               </div>
             </div>
 
-            {/* Landscape Certificate Canvas */}
-            <div className="relative w-full aspect-[1.414/1] bg-white text-slate-900 rounded-xl shadow-2xl overflow-hidden select-none p-4 sm:p-8 flex flex-col justify-between">
-              {/* Top-left & Top-right gold concentric corner lines */}
-              <svg className="absolute top-2 left-2 w-24 sm:w-40 h-24 sm:h-40 pointer-events-none" viewBox="0 0 160 160">
-                {[0, 1, 2, 3, 4].map((i) => {
-                  const o = 6 + i * 9;
-                  const len = 148 - i * 22;
-                  return (
-                    <polyline
-                      key={i}
-                      points={`${o},${o + len} ${o},${o} ${o + len},${o}`}
-                      fill="none"
-                      stroke="#C69D47"
-                      strokeWidth="2.5"
-                    />
-                  );
-                })}
-              </svg>
-              <svg className="absolute top-2 right-2 w-24 sm:w-40 h-24 sm:h-40 pointer-events-none" viewBox="0 0 160 160">
-                {[0, 1, 2, 3, 4].map((i) => {
-                  const o = 6 + i * 9;
-                  const len = 148 - i * 22;
-                  return (
-                    <polyline
-                      key={i}
-                      points={`${160 - o},${o + len} ${160 - o},${o} ${160 - o - len},${o}`}
-                      fill="none"
-                      stroke="#C69D47"
-                      strokeWidth="2.5"
-                    />
-                  );
-                })}
-              </svg>
+            {/* Landscape Certificate Canvas using exact uploaded PDF template */}
+            <div className="relative w-full aspect-[1.414/1] bg-white text-slate-900 rounded-xl shadow-2xl overflow-hidden select-none">
+              <img
+                src="/certificate-template-bg.png"
+                alt="Certificate template"
+                className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+              />
 
-              {/* Bottom-left & Bottom-right Espresso + Gold Pattern Triangles */}
-              <svg className="absolute bottom-0 left-0 w-[31%] h-[52%] pointer-events-none" viewBox="0 0 300 300" preserveAspectRatio="none">
-                <defs>
-                  <pattern id="islamicGoldL" width="28" height="28" patternUnits="userSpaceOnUse">
-                    <polygon points="14,2 26,14 14,26 2,14" fill="none" stroke="#C69D47" strokeWidth="1" opacity="0.4" />
-                    <circle cx="14" cy="14" r="3" fill="none" stroke="#C69D47" strokeWidth="1" opacity="0.4" />
-                  </pattern>
-                </defs>
-                <polygon points="0,0 300,300 0,300" fill="#1D1109" />
-                <polygon points="0,0 300,300 0,300" fill="url(#islamicGoldL)" />
-                <line x1="0" y1="0" x2="300" y2="300" stroke="#C8A045" strokeWidth="14" />
-              </svg>
-              <svg className="absolute bottom-0 right-0 w-[31%] h-[52%] pointer-events-none" viewBox="0 0 300 300" preserveAspectRatio="none">
-                <defs>
-                  <pattern id="islamicGoldR" width="28" height="28" patternUnits="userSpaceOnUse">
-                    <polygon points="14,2 26,14 14,26 2,14" fill="none" stroke="#C69D47" strokeWidth="1" opacity="0.4" />
-                    <circle cx="14" cy="14" r="3" fill="none" stroke="#C69D47" strokeWidth="1" opacity="0.4" />
-                  </pattern>
-                </defs>
-                <polygon points="300,0 0,300 300,300" fill="#1D1109" />
-                <polygon points="300,0 0,300 300,300" fill="url(#islamicGoldR)" />
-                <line x1="300" y1="0" x2="0" y2="300" stroke="#C8A045" strokeWidth="14" />
-              </svg>
-
-              {/* Left & Right Laurel Leaves */}
-              <svg className="hidden sm:block absolute left-[7%] top-[24%] w-16 h-[44%] pointer-events-none" viewBox="0 0 80 240">
-                <path d="M55,230 Q18,130 48,15" fill="none" stroke="#C69D47" strokeWidth="2.5" />
-                {Array.from({ length: 10 }).map((_, idx) => {
-                  const y = 210 - idx * 20;
-                  const x = 35 + Math.sin(idx * 0.4) * 8;
-                  return (
-                    <g key={idx}>
-                      <ellipse cx={x - 10} cy={y} rx="12" ry="4.5" transform={`rotate(-35 ${x - 10} ${y})`} fill="#C69D47" />
-                      <ellipse cx={x + 12} cy={y - 6} rx="11" ry="4" transform={`rotate(40 ${x + 12} ${y - 6})`} fill="#C69D47" />
-                    </g>
-                  );
-                })}
-              </svg>
-              <svg className="hidden sm:block absolute right-[7%] top-[24%] w-16 h-[44%] pointer-events-none scale-x-[-1]" viewBox="0 0 80 240">
-                <path d="M55,230 Q18,130 48,15" fill="none" stroke="#C69D47" strokeWidth="2.5" />
-                {Array.from({ length: 10 }).map((_, idx) => {
-                  const y = 210 - idx * 20;
-                  const x = 35 + Math.sin(idx * 0.4) * 8;
-                  return (
-                    <g key={idx}>
-                      <ellipse cx={x - 10} cy={y} rx="12" ry="4.5" transform={`rotate(-35 ${x - 10} ${y})`} fill="#C69D47" />
-                      <ellipse cx={x + 12} cy={y - 6} rx="11" ry="4" transform={`rotate(40 ${x + 12} ${y - 6})`} fill="#C69D47" />
-                    </g>
-                  );
-                })}
-              </svg>
-
-              {/* Header & Title */}
-              <div className="relative z-10 text-center space-y-1 pt-2">
-                <div className="text-[9px] sm:text-xs font-bold tracking-widest text-slate-600">
-                  EDUMANAGER • IT EDUCATION PLATFORM
-                </div>
-                <div className="text-2xl sm:text-5xl font-serif font-bold tracking-[0.25em] text-[#9E7422] pt-2">
-                  CERTIFICATE
-                </div>
-                <div className="text-[11px] sm:text-lg font-serif tracking-[0.25em] text-[#9E7422]">
-                  OF COMPLETION
-                </div>
-                <div className="text-[10px] sm:text-sm font-bold tracking-widest text-[#8B6316]">
-                  {previewCert.centerName.toUpperCase()}
-                </div>
+              {/* Student Name centered above the black line */}
+              <div
+                className="absolute left-[14%] right-[14%] text-center font-normal text-slate-900 leading-tight truncate"
+                style={{ top: '40.5%', fontSize: 'clamp(12px, 3.6vw, 34px)' }}
+              >
+                {previewCert.studentFullName}
               </div>
 
-              {/* Recipient & Course */}
-              <div className="relative z-10 text-center space-y-1.5 sm:space-y-3 px-6 sm:px-20">
-                <div className="text-[10px] sm:text-sm text-slate-700">This Certificate has been awarded to</div>
-                <div className="text-xl sm:text-4xl font-extrabold text-slate-900 border-b-2 border-slate-900 pb-1 inline-block px-6 sm:px-14">
-                  {previewCert.studentFullName}
-                </div>
-                <div className="text-[10px] sm:text-sm font-bold text-slate-900 max-w-xl mx-auto">
-                  «&ldquo;{previewCert.courseName}&rdquo; kursini {previewCert.resultScore} natija bilan muvaffaqiyatli yakunladi»
-                </div>
-                <div className="text-[10px] sm:text-xs font-bold text-slate-800">
-                  {formatDateEn(previewCert.courseStartDate)} - {formatDateEn(previewCert.courseEndDate)}
-                </div>
+              {/* Course & Result centered below the black line */}
+              <div
+                className="absolute left-[17%] right-[17%] text-center font-bold text-slate-900 leading-snug"
+                style={{ top: '50.5%', fontSize: 'clamp(7px, 1.45vw, 14px)' }}
+              >
+                «&ldquo;{previewCert.courseName}&rdquo; kursini {previewCert.resultScore} natija bilan muvaffaqiyatli yakunladi»
               </div>
 
-              {/* Footer: Signature, Stamp + ID, QR */}
-              <div className="relative z-10 flex flex-col items-center gap-1 pb-1">
-                <div className="flex items-center justify-center gap-4 sm:gap-10">
-                  <svg className="w-16 sm:w-24 h-10" viewBox="0 0 120 50">
-                    <path
-                      d="M10,35 C20,8 45,8 32,35 C22,48 16,38 42,26 C56,16 64,34 80,22 C90,14 96,36 112,18"
-                      fill="none"
-                      stroke="#0F172A"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                  <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-full border-2 border-blue-700 flex items-center justify-center p-1">
-                    <div className="w-full h-full rounded-full border border-blue-700 flex items-center justify-center text-center text-[6px] sm:text-[8px] font-extrabold text-blue-700 leading-tight px-1">
-                      {previewCert.centerName.toUpperCase()}
-                    </div>
-                  </div>
-                  <div className="p-1 bg-white border border-slate-300 rounded">
-                    <div className="w-12 h-12 sm:w-16 sm:h-16 bg-slate-900 text-white flex items-center justify-center text-[8px] font-mono text-center p-1">
-                      QR CODE
-                    </div>
-                  </div>
+              {/* Date Range */}
+              <div
+                className="absolute left-[18%] right-[18%] text-center font-bold text-slate-900"
+                style={{ top: '61.5%', fontSize: 'clamp(7px, 1.45vw, 14px)' }}
+              >
+                {formatDateEn(previewCert.courseStartDate)} - {formatDateEn(previewCert.courseEndDate)}
+              </div>
+
+              {previewCert.status === 'REVOKED' && (
+                <div
+                  className="absolute left-[20%] right-[20%] text-center font-extrabold text-red-600"
+                  style={{ top: '67%', fontSize: 'clamp(9px, 2vw, 20px)' }}
+                >
+                  BEKOR QILINGAN / REVOKED
                 </div>
-                <div className="text-[10px] sm:text-xs font-bold underline">ID: {previewCert.certificateNumber}</div>
+              )}
+
+              {/* QR Code to the right of the stamp */}
+              {previewQrUrl && (
+                <img
+                  src={previewQrUrl}
+                  alt="QR"
+                  className="absolute bg-white"
+                  style={{ left: '59.8%', bottom: '18.1%', width: '8.8%', aspectRatio: '1 / 1' }}
+                />
+              )}
+
+              {/* Certificate ID centered below director name */}
+              <div
+                className="absolute left-[20%] right-[20%] text-center font-bold text-slate-900 underline"
+                style={{ bottom: '7.6%', fontSize: 'clamp(7px, 1.35vw, 13px)' }}
+              >
+                ID:{previewCert.certificateNumber}
               </div>
             </div>
           </div>
